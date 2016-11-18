@@ -11,6 +11,7 @@ import pyte
 from io import StringIO
 import subprocess
 import time
+import configparser
 
 CURSOR_TIMEOUT = 0.02
 class State:
@@ -19,6 +20,72 @@ class State:
 		self.revx = 0
 		self.delayed_functions = []
 		self.tempsilence = False
+		self.key_handlers = []
+		self.config = configparser.ConfigParser()
+		self.config['speech'] = {}
+
+	def save_config(self):
+		with open(os.path.expanduser('~/.tdsr.cfg'), 'w') as fp:
+			self.config.write(fp)
+
+class KeyHandler:
+	PASSTHROUGH = 1
+	REMOVE = 2
+	def __init__(self, keymap, fd=None):
+		self.keymap = keymap
+		self.fd = fd
+
+	def process(self, data):
+		if data not in self.keymap:
+			return self.handle_unknown_key(data)
+		else:
+			result = self.keymap[data]()
+			if result == KeyHandler.PASSTHROUGH:
+				os.write(self.fd, data)
+			return result
+
+	def handle_unknown_key(self, data):
+		os.write(self.fd, data)
+
+class ConfigHandler(KeyHandler):
+	def __init__(self):
+		self.keymap = {
+			b'r': self.set_rate,
+		}
+		super().__init__(self.keymap)
+
+	def set_rate(self):
+		say("Rate")
+		state.key_handlers.append(BufferHandler(on_accept=self.set_rate2))
+
+	def set_rate2(self, val):
+		try:
+			val = int(val)
+		except ValueError:
+			say("Invalid value")
+			return
+		set_rate(val)
+		state.config['speech']['rate'] = str(val)
+		state.save_config()
+		say("Confirmed")
+
+	def handle_unknown_key(self, data):
+		if data == b'\r' or data == b'\n':
+			say("exit")
+			return KeyHandler.REMOVE
+
+class BufferHandler(KeyHandler):
+	def __init__(self, on_accept=None):
+		self.on_accept = on_accept
+		self.buffer = ''
+		super().__init__(keymap={})
+
+	def process(self, data):
+		if data == b'\r' or data == b'\n':
+			self.on_accept(self.buffer)
+			return KeyHandler.REMOVE
+		else:
+			self.buffer += data.decode('utf-8')
 
 state = State()
 speech_buffer = StringIO()
@@ -28,6 +95,9 @@ def main():
 	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, s))
 	global pipe, screen
 	pipe = subprocess.Popen(os.path.expanduser('~/mac'), shell=True, stdin=subprocess.PIPE)
+	state.config.read(os.path.expanduser('~/.tdsr.cfg'))
+	if 'rate' in state.config['speech']:
+		set_rate(int(state.config['speech']['rate']))
 	pid, fd = os.forkpty()
 	if pid == 0:
 		handle_child()
@@ -35,8 +105,11 @@ def main():
 	stream = pyte.Stream()
 	stream.attach(screen)
 	decoder = codecs.getincrementaldecoder('utf-8')()
+	default_key_handler = KeyHandler(keymap, fd)
+	state.key_handlers.append(default_key_handler)
 	s = fcntl.ioctl(0, termios.TIOCGWINSZ, s)
 	fcntl.ioctl(fd, termios.TIOCSWINSZ, s)
+	say("TDSR active")
 	while True:
 		r, w, e = select.select([sys.stdin, fd], [], [], time_until_next_delayed())
 		if sys.stdin in r:
@@ -65,23 +138,16 @@ def process_input(bytes, fd):
 	silence()
 	state.delayed_functions = []
 	state.tempsilence = False
-	if handle_escape(bytes):
-		return
+	res = state.key_handlers[-1].process(bytes)
+	if res == KeyHandler.REMOVE:
+		state.key_handlers = state.key_handlers[:-1]
 	lastkey = bytes.decode('utf-8', 'replace')
-	os.write(fd, bytes)
 
-def handle_escape(s):
-	if s in keymap:
-		keymap[s]()
-		return True
-	elif s in arrows:
-		arrows[s]()
-		return False
-	elif s == b'\x08' or s == b'\x7f':
-		x = screen.cursor.x
-		if x > 0:
-			say(screen.display[screen.cursor.y][screen.cursor.x - 1])
-	return False
+def handle_backspace():
+	x = screen.cursor.x
+	if x > 0:
+		say(screen.display[screen.cursor.y][screen.cursor.x - 1])
+	return KeyHandler.PASSTHROUGH
 
 def sayline(y):
 	line = screen.display[y].strip()
@@ -164,17 +230,25 @@ def say_character(ch):
 	pipe.stdin.write(b'l%s\n' % ch.encode('utf-8'))
 	pipe.stdin.flush()
 
+def set_rate(rate):
+	pipe.stdin.write(b'r%d\n' % rate)
+	pipe.stdin.flush()
+
 def arrow_up():
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
+	return KeyHandler.PASSTHROUGH
 
 def arrow_down():
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
+	return KeyHandler.PASSTHROUGH
 
 def arrow_left():
 	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
+	return KeyHandler.PASSTHROUGH
 
 def arrow_right():
 	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
+	return KeyHandler.PASSTHROUGH
 
 def schedule(timeout, func, set_tempsilence=False):
 	state.delayed_functions.append((time.time() + timeout, func))
@@ -199,6 +273,10 @@ def time_until_next_delayed():
 		return None
 	return max(0, state.delayed_functions[0][0] - time.time())
 
+def config():
+	say("config")
+	state.key_handlers.append(ConfigHandler())
+
 keymap = {
 	b'\x1bi': lambda: sayline(state.revy),
 	b'\x1bu': prevline,
@@ -206,8 +284,9 @@ keymap = {
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b.': nextchar,
-}
-arrows = {
+	b'\x1bc': config,
+	b'\x08': handle_backspace,
+	b'\x7f': handle_backspace,
 	b'\x1b[A': arrow_up,
 	b'\x1b[B': arrow_down,
 	b'\x1b[C': arrow_right,
