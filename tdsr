@@ -150,16 +150,15 @@ def sb():
 
 def say(data):
 	data = data.strip()
-	data = data.replace('{', ' ').replace('}', ' ')
-	pipe.stdin.write(b"q {" + data.encode('utf-8') + b"}\nd\n")
+	pipe.stdin.write(b"s" + data.encode('utf-8') + b"\n")
 	pipe.stdin.flush()
 
 def silence():
-	pipe.stdin.write(b's\n')
+	pipe.stdin.write(b'x\n')
 	pipe.stdin.flush()
 
 def say_character(ch):
-	pipe.stdin.write(b'l {%s}\n' % ch.encode('utf-8'))
+	pipe.stdin.write(b'l%s\n' % ch.encode('utf-8'))
 	pipe.stdin.flush()
 
 def arrow_up():
