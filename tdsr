@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+import sys
+import os
+import select
+import tty
+import fcntl
+import struct
+import termios
+import codecs
+import pyte
+from io import StringIO
+import subprocess
+import time
+
+CURSOR_TIMEOUT = 0.02
+class State:
+	def __init__(self):
+		self.revy = 0
+		self.revx = 0
+		self.delayed_functions = []
+		self.tempsilence = False
+
+state = State()
+speech_buffer = StringIO()
+lastkey = ""
+def main():
+	s = struct.pack('HHHH', 0, 0, 0, 0)
+	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, s))
+	global pipe, screen
+	pipe = subprocess.Popen(os.path.expanduser('~/mac'), shell=True, stdin=subprocess.PIPE)
+	pid, fd = os.forkpty()
+	if pid == 0:
+		handle_child()
+	screen = MyScreen(cols, rows)
+	stream = pyte.Stream()
+	stream.attach(screen)
+	decoder = codecs.getincrementaldecoder('utf-8')()
+	s = fcntl.ioctl(0, termios.TIOCGWINSZ, s)
+	fcntl.ioctl(fd, termios.TIOCSWINSZ, s)
+	while True:
+		r, w, e = select.select([sys.stdin, fd], [], [], time_until_next_delayed())
+		if sys.stdin in r:
+			bytes = os.read(0, 4096)
+			process_input(bytes, fd)
+		if fd in r:
+			bytes = os.read(fd, 4096)
+			decoded_bytes = decoder.decode(bytes)
+			x, y = screen.cursor.x, screen.cursor.y
+			stream.feed(decoded_bytes)
+			if screen.cursor.x != x or screen.cursor.y != y:
+				state.revx, state.revy = screen.cursor.x, screen.cursor.y
+			sb()
+			os.write(1, bytes)
+		run_scheduled()
+
+def handle_child():
+	os.execv(os.environ['SHELL'], ['bash', '-i'])
+
+newbytes = StringIO()
+in_escape = False
+escsec = ""
+def process_input(bytes, fd):
+	global lastkey
+	lastkey = ""
+	silence()
+	state.delayed_functions = []
+	state.tempsilence = False
+	if handle_escape(bytes):
+		return
+	lastkey = bytes.decode('utf-8', 'replace')
+	os.write(fd, bytes)
+
+def handle_escape(s):
+	if s in keymap:
+		keymap[s]()
+		return True
+	elif s in arrows:
+		arrows[s]()
+		return False
+	elif s == b'\x08' or s == b'\x7f':
+		x = screen.cursor.x
+		if x > 0:
+			say(screen.display[screen.cursor.y][screen.cursor.x - 1])
+	return False
+
+def sayline(y):
+	say(screen.display[y])
+
+def prevline():
+	state.revy -= 1
+	if state.revy < 0:
+		say("top")
+		state.revy = 0
+	sayline(state.revy)
+
+def nextline():
+	state.revy += 1
+	if state.revy > screen.lines - 1:
+		say("bottom")
+		state.revy = screen.lines - 1
+	sayline(state.revy)
+
+def prevchar():
+	state.revx -= 1
+	if state.revx < 0:
+		say("left")
+		state.revx = 0
+	saychar(state.revy, state.revx)
+
+def saychar(y, x):
+	char = screen.display[y][x]
+	say_character(char)
+
+def nextchar():
+	state.revx += 1
+	if state.revx > screen.columns - 1:
+		say("right")
+		state.revx = screen.columns - 1
+	saychar(state.revy, state.revx)
+
+class MyScreen(pyte.Screen):
+
+	def draw(self, text):
+		global lastkey
+		if text == lastkey:
+			lastkey = ""
+			return super(MyScreen, self).draw(text)
+		else:
+			lastkey = ""
+		speech_buffer.write(text)
+		super(MyScreen, self).draw(text)
+
+	def linefeed(self):
+		sb()
+		super(MyScreen, self).linefeed()
+
+	def backspace(self):
+		if self.cursor.x > 0 and speech_buffer.tell() > 0:
+			speech_buffer.seek(speech_buffer.tell() - 1)
+		super(MyScreen, self).backspace()
+
+def sb():
+	data = speech_buffer.getvalue()
+	speech_buffer.truncate(0)
+	speech_buffer.seek(0)
+	if data == u'':
+		return
+	if not state.tempsilence:
+		say(data)
+
+def say(data):
+	data = data.strip()
+	data = data.replace('{', ' ').replace('}', ' ')
+	pipe.stdin.write(b"q {" + data.encode('utf-8') + b"}\nd\n")
+	pipe.stdin.flush()
+
+def silence():
+	pipe.stdin.write(b's\n')
+	pipe.stdin.flush()
+
+def say_character(ch):
+	pipe.stdin.write(b'l {%s}\n' % ch.encode('utf-8'))
+	pipe.stdin.flush()
+
+def arrow_up():
+	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
+
+def arrow_down():
+	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
+
+def arrow_left():
+	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
+
+def arrow_right():
+	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
+
+def schedule(timeout, func, set_tempsilence=False):
+	state.delayed_functions.append((time.time() + timeout, func))
+	if set_tempsilence:
+		state.tempsilence = True
+
+def run_scheduled():
+	if not state.delayed_functions:
+		return
+	to_remove = []
+	curtime = time.time()
+	for i in state.delayed_functions:
+		t, f = i
+		if curtime >= t:
+			f()
+			to_remove.append(i)
+	for i in to_remove:
+		state.delayed_functions.remove(i)
+
+def time_until_next_delayed():
+	if not state.delayed_functions:
+		return None
+	return max(0, state.delayed_functions[0][0] - time.time())
+
+keymap = {
+	b'\x1bi': lambda: sayline(state.revy),
+	b'\x1bu': prevline,
+	b'\x1bo': nextline,
+	b'\x1bm': prevchar,
+	b'\x1b,': lambda: saychar(state.revy, state.revx),
+	b'\x1b.': nextchar,
+}
+arrows = {
+	b'\x1b[A': arrow_up,
+	b'\x1b[B': arrow_down,
+	b'\x1b[C': arrow_right,
+	b'\x1b[D': arrow_left,
+	#
+	b'\x1bOA': arrow_up,
+	b'\x1bOB': arrow_down,
+	b'\x1bOC': arrow_right,
+	b'\x1bOD': arrow_left,
+}
+
+if __name__ == '__main__':
+	try:
+		old = termios.tcgetattr(0)
+		tty.setraw(0)
+		main()
+	finally:
+		termios.tcsetattr(0, termios.TCSADRAIN, old)
