@@ -208,6 +208,11 @@ class MyScreen(pyte.Screen):
 			speech_buffer.seek(speech_buffer.tell() - 1)
 		super(MyScreen, self).backspace()
 
+	def set_margins(self, top=None, bottom=None):
+		if top == 0 and bottom is None:
+			top, bottom = 1, self.lines
+		super().set_margins(top=top, bottom=bottom)
+
 def sb():
 	data = speech_buffer.getvalue()
 	speech_buffer.truncate(0)
