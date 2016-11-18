@@ -84,7 +84,10 @@ def handle_escape(s):
 	return False
 
 def sayline(y):
-	say(screen.display[y])
+	line = screen.display[y].strip()
+	if line == u'':
+		line = u'blank'
+	say(line)
 
 def prevline():
 	state.revy -= 1
