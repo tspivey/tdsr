@@ -1,0 +1,149 @@
+#!/usr/bin/python
+from Foundation import *
+from AppKit import NSSpeechSynthesizer, NSSpeechRecentSyncProperty
+from PyObjCTools import AppHelper
+import struct
+import threading
+
+rate = None
+
+class QueuedSynth(NSObject):
+	def init_(self, handler):
+		self = super(QueuedSynth, self).init()
+		self.synth = NSSpeechSynthesizer.alloc().init()
+		self.speaking = False
+		self.lock = threading.Lock()
+		self.synth.setDelegate_(self)
+		self.queue = []
+		self.last_index = None
+		self.handle_index = handler
+		return self
+
+	def speak(self, text, index=None):
+		with self.lock:
+			self.queue.append((text, index))
+			if self.speaking:
+				return
+			self.speak_more()
+
+	def speechSynthesizer_didFinishSpeaking_(self, synth, success):
+		with self.lock:
+			if not self.speaking:
+				return
+			if self.last_index:
+				self.handle_index(self.last_index)
+			if len(self.queue) == 0:
+				self.speaking = False
+				return
+			self.speak_more()
+
+	def speak_more(self):
+		text, index = self.queue.pop(0)
+		res = self.synth.startSpeakingString_(text)
+		if res == False:
+			self.speaking = False
+			return
+		self.speaking = True
+		self.last_index = index
+
+	def stop(self):
+		with self.lock:
+			if not self.speaking: return
+			self.synth.stopSpeaking()
+			self.queue = []
+
+	def speechSynthesizer_didEncounterSyncMessage_(self, synth, message):
+		n = synth.objectForProperty_error_(NSSpeechRecentSyncProperty, None)[0]
+		self.handle_index(n)
+
+class FileObserver(NSObject):
+	def initWithFileDescriptor_readCallback_errorCallback_(self,
+	fileDescriptor, readCallback, errorCallback):
+		self = self.init()
+		self.readCallback = readCallback
+		self.errorCallback = errorCallback
+		self.fileHandle = NSFileHandle.alloc().initWithFileDescriptor_(
+		fileDescriptor)
+		self.nc = NSNotificationCenter.defaultCenter()
+		self.nc.addObserver_selector_name_object_(
+		self,
+		'fileHandleReadCompleted:',
+		NSFileHandleReadCompletionNotification,
+		self.fileHandle)
+		self.fileHandle.readInBackgroundAndNotify()
+		return self
+
+	def fileHandleReadCompleted_(self, aNotification):
+		ui = aNotification.userInfo()
+		newData = ui.objectForKey_(NSFileHandleNotificationDataItem)
+		if newData is None:
+			if self.errorCallback is not None:
+				self.errorCallback(self, ui.objectForKey_(NSFileHandleError))
+			self.close()
+		else:
+			self.fileHandle.readInBackgroundAndNotify()
+			if self.readCallback is not None:
+				self.readCallback(self, str(newData))
+
+	def close(self):
+		self.nc.removeObserver_(self)
+		if self.fileHandle is not None:
+			self.fileHandle.closeFile()
+			self.fileHandle = None
+		# break cycles in case these functions are closed over
+		# an instance of us
+		self.readCallback = None
+		self.errorCallback = None
+
+	def __del__(self):
+		# Without this, if a notification fires after we are GC'ed
+		# then the app will crash because NSNotificationCenter
+		# doesn't retain observers.  In this example, it doesn't
+		# matter, but it's worth pointing out.
+		self.close()
+
+def prompt():
+	sys.stdout.write("write something: ")
+	sys.stdout.flush()
+
+def gotLine(observer, line):
+	if not line:
+		AppHelper.stopEventLoop()
+		return
+	line = line.strip('\n')
+	for l in line.split('\n'):
+		handle_line(l)
+
+def handle_line(line):
+	global rate
+	line = line.decode('utf-8', 'replace')
+	if line[0] == u"s":
+		l = ""
+		if rate:
+			l += u"[[rate %s]]" % rate
+		l += line[1:].replace('[[', ' ')
+		l = l.replace(u'\u23ce', ' ')
+		synth.speak(l)
+	elif line[0] == u"x":
+		synth.stop()
+	elif line[0] == u"l":
+		synth.speak(u"[[char ltrl]] %s [[char norm]]" % line[1:])
+	elif line[0] == u"r":
+		rate = line[1:]
+
+def gotError(observer, err):
+	print "error:", err
+	AppHelper.stopEventLoop()
+
+synth = None
+def main():
+	global synth
+	import sys
+	observer = FileObserver.alloc().initWithFileDescriptor_readCallback_errorCallback_(
+	sys.stdin.fileno(), gotLine, gotError)
+	synth = QueuedSynth.alloc().init_(None)
+
+	AppHelper.runConsoleEventLoop(installInterrupt=True)
+
+if __name__ == '__main__':
+	main()
