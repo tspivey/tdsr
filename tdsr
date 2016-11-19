@@ -19,6 +19,7 @@ class State:
 		self.revy = 0
 		self.revx = 0
 		self.delayed_functions = []
+		self.silence = False
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
@@ -125,7 +126,8 @@ def main():
 			stream.feed(decoded_bytes)
 			if screen.cursor.x != x or screen.cursor.y != y:
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
-			sb()
+			if not state.silence:
+				sb()
 			os.write(1, bytes)
 		run_scheduled()
 
@@ -199,11 +201,13 @@ class MyScreen(pyte.Screen):
 			return super(MyScreen, self).draw(text)
 		else:
 			lastkey = ""
-		speech_buffer.write(text)
+		if not state.silence:
+			speech_buffer.write(text)
 		super(MyScreen, self).draw(text)
 
 	def tab(self):
-		speech_buffer.write(' ')
+		if not state.silence:
+			speech_buffer.write(' ')
 		super().tab()
 
 	def linefeed(self):
@@ -361,6 +365,10 @@ def nextword():
 		return
 	sayword()
 
+def handle_silence():
+	state.silence = not state.silence
+	say("on" if state.silence else "off")
+
 keymap = {
 	b'\x1bi': lambda: sayline(state.revy),
 	b'\x1bu': prevline,
@@ -372,6 +380,7 @@ keymap = {
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b.': nextchar,
 	b'\x1bc': config,
+	b'\x1bq': handle_silence,
 	b'\x08': handle_backspace,
 	b'\x7f': handle_backspace,
 	b'\x1b[A': arrow_up,
