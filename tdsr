@@ -12,6 +12,7 @@ from io import StringIO
 import subprocess
 import time
 import configparser
+import re
 
 CURSOR_TIMEOUT = 0.02
 class State:
@@ -23,11 +24,24 @@ class State:
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
-		self.config['speech'] = {}
+		self.config['speech'] = {'process_symbols': 'false'}
+		self.config['symbols'] = {}
+		self.symbols_Re = None
 
 	def save_config(self):
 		with open(os.path.expanduser('~/.tdsr.cfg'), 'w') as fp:
 			self.config.write(fp)
+
+	def build_symbols_re(self):
+		candidates = []
+		for symbol in self.config['symbols']:
+			symbol = int(symbol)
+			if symbol == 32:
+				continue
+			candidates.append(re.escape(chr(symbol)))
+		if not candidates:
+			return None
+		return re.compile('|'.join(candidates))
 
 class KeyHandler:
 	PASSTHROUGH = 1
@@ -52,6 +66,7 @@ class ConfigHandler(KeyHandler):
 	def __init__(self):
 		self.keymap = {
 			b'r': self.set_rate,
+			b'p': self.set_process_symbols,
 		}
 		super().__init__(self.keymap)
 
@@ -69,6 +84,13 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['rate'] = str(val)
 		state.save_config()
 		say("Confirmed")
+
+	def set_process_symbols(self):
+		current = state.config.getboolean('speech', 'process_symbols', fallback=False)
+		current = not current
+		state.config['speech']['process_symbols'] = str(current)
+		state.save_config()
+		say("on" if current else "off")
 
 	def handle_unknown_key(self, data):
 		if data == b'\r' or data == b'\n':
@@ -97,6 +119,7 @@ def main():
 	global pipe, screen
 	pipe = subprocess.Popen(os.path.expanduser('~/mac'), shell=True, stdin=subprocess.PIPE)
 	state.config.read(os.path.expanduser('~/.tdsr.cfg'))
+	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))
 	pid, fd = os.forkpty()
@@ -235,6 +258,10 @@ def sb():
 
 def say(data):
 	data = data.strip()
+	def replace_symbols(m):
+		return " %s " % state.config['symbols'][str(ord(m.group(0)))]
+	if state.symbols_re is not None and state.config.getboolean('speech', 'process_symbols', fallback=False):
+		data = state.symbols_re.sub(replace_symbols, data)
 	pipe.stdin.write(b"s" + data.encode('utf-8') + b"\n")
 	pipe.stdin.flush()
 
@@ -243,7 +270,11 @@ def silence():
 	pipe.stdin.flush()
 
 def say_character(ch):
-	pipe.stdin.write(b'l%s\n' % ch.encode('utf-8'))
+	key = str(ord(ch))
+	if key in state.config['symbols']:
+		pipe.stdin.write(b's%s\n' % state.config['symbols'][key].encode('utf-8'))
+	else:
+		pipe.stdin.write(b'l%s\n' % ch.encode('utf-8'))
 	pipe.stdin.flush()
 
 def set_rate(rate):
