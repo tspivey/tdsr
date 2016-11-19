@@ -247,6 +247,18 @@ class MyScreen(pyte.Screen):
 			top, bottom = 1, self.lines
 		super().set_margins(top=top, bottom=bottom)
 
+	def reset_mode(self, *modes, **kwargs):
+		if 3 in modes:
+			modes = list(modes)
+			modes.remove(3)
+		super().reset_mode(*modes, **kwargs)
+
+	def set_mode(self, *modes, **kwargs):
+		if 3 in modes:
+			modes = list(modes)
+			modes.remove(3)
+		super().set_mode(*modes, **kwargs)
+
 def sb():
 	data = speech_buffer.getvalue()
 	speech_buffer.truncate(0)
