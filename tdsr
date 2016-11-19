@@ -16,7 +16,8 @@ import re
 import argparse
 import shlex
 
-DEFAULT_CONFIG = os.path.join(os.path.abspath(os.path.realpath(os.path.dirname(__file__))), 'tdsr.cfg.dist')
+TDSR_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+DEFAULT_CONFIG = os.path.join(TDSR_DIR, 'tdsr.cfg.dist')
 CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 class State:
@@ -123,7 +124,7 @@ def main():
 	parser.add_argument('program', action='store', nargs='*')
 	args = parser.parse_args()
 	if args.speech_server is None:
-		speech_server = os.path.join(os.path.abspath(os.path.realpath(os.path.dirname(__file__))), 'mac')
+		speech_server = os.path.join(TDSR_DIR, 'mac')
 	else:
 		speech_server = shlex.split(args.speech_server)
 	s = struct.pack('HHHH', 0, 0, 0, 0)
