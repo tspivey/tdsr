@@ -174,7 +174,7 @@ def process_input(bytes, fd):
 def handle_backspace():
 	x = screen.cursor.x
 	if x > 0:
-		say(screen.display[screen.cursor.y][screen.cursor.x - 1])
+		say_character(screen.display[screen.cursor.y][screen.cursor.x - 1])
 	return KeyHandler.PASSTHROUGH
 
 def sayline(y):
