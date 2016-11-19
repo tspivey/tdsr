@@ -199,6 +199,10 @@ class MyScreen(pyte.Screen):
 		speech_buffer.write(text)
 		super(MyScreen, self).draw(text)
 
+	def tab(self):
+		speech_buffer.write(' ')
+		super().tab()
+
 	def linefeed(self):
 		sb()
 		super(MyScreen, self).linefeed()
