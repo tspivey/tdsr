@@ -116,7 +116,10 @@ def main():
 			bytes = os.read(0, 4096)
 			process_input(bytes, fd)
 		if fd in r:
-			bytes = os.read(fd, 4096)
+			try:
+				bytes = os.read(fd, 4096)
+			except OSError:
+				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
