@@ -282,10 +282,85 @@ def config():
 	say("config")
 	state.key_handlers.append(ConfigHandler())
 
+def get_char(d=None):
+	if d is None:
+		d = screen.display
+	return d[state.revy][state.revx]
+
+def move_prevchar():
+	if state.revx == 0:
+		if state.revy == 0:
+			return ''
+		state.revy -= 1
+		state.revx = screen.columns - 1
+	else:
+		state.revx -= 1
+
+def move_nextchar():
+	if state.revx == screen.columns - 1:
+		if state.revy == screen.lines - 1:
+			return ''
+		state.revy += 1
+		state.revx = 0
+	else:
+		state.revx += 1
+
+def prevword():
+	if state.revx == 0:
+		say("left")
+		return
+	d = screen.display
+	#Move over any existing word we might be in the middle of
+	while state.revx > 0 and get_char(d) != ' ':
+		move_prevchar()
+	#Skip whitespace
+	while state.revx > 0 and get_char(d) == ' ':
+		move_prevchar()
+	#Move to the beginning of the word we're now on
+	while state.revx > 0 and get_char(d) != ' ' and screen.display[state.revy][state.revx - 1] != ' ':
+		move_prevchar()
+	sayword()
+
+def sayword():
+	word = ""
+	revx, revy = state.revx, state.revy
+	d = screen.display
+	while state.revx > 0 and get_char(d) != ' ':
+		move_prevchar()
+	if state.revx == 0 and get_char(d) == ' ':
+		say("space")
+		return
+	while state.revx < screen.columns - 1:
+		word += get_char(d)
+		move_nextchar()
+		if get_char(d) == ' ':
+			break
+	say(word)
+	state.revx, state.revy = revx, revy
+
+def nextword():
+	revx, revy = state.revx, state.revy
+	m = screen.columns - 1
+	d = screen.display
+	#Move over any existing word we might be in the middle of
+	while state.revx < m and get_char(d) != ' ':
+		move_nextchar()
+	#Skip whitespace
+	while state.revx < m and get_char(d) == ' ':
+		move_nextchar()
+	if state.revx == m and get_char(d) == ' ':
+		say("right")
+		state.revx = revx
+		return
+	sayword()
+
 keymap = {
 	b'\x1bi': lambda: sayline(state.revy),
 	b'\x1bu': prevline,
 	b'\x1bo': nextline,
+	b'\x1bj': prevword,
+	b'\x1bk': sayword,
+	b'\x1bl': nextword,
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b.': nextchar,
