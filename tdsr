@@ -16,6 +16,8 @@ import re
 import argparse
 import shlex
 
+DEFAULT_CONFIG = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'tdsr.cfg.dist')
+CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 class State:
 	def __init__(self):
@@ -31,7 +33,7 @@ class State:
 		self.symbols_Re = None
 
 	def save_config(self):
-		with open(os.path.expanduser('~/.tdsr.cfg'), 'w') as fp:
+		with open(CONFIG_FILE, 'w') as fp:
 			self.config.write(fp)
 
 	def build_symbols_re(self):
@@ -128,7 +130,10 @@ def main():
 	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, s))
 	global pipe, screen
 	pipe = subprocess.Popen(speech_server, stdin=subprocess.PIPE)
-	state.config.read(os.path.expanduser('~/.tdsr.cfg'))
+	if os.path.exists(DEFAULT_CONFIG) and not os.path.exists(CONFIG_FILE):
+			state.config.read(DEFAULT_CONFIG)
+			state.save_config()
+	state.config.read(CONFIG_FILE)
 	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))

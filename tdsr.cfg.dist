@@ -1,0 +1,38 @@
+[speech]
+process_symbols = False
+
+[symbols]
+32 = space
+33 = bang
+34 = quote
+35 = number
+36 = dollar
+37 = percent
+38 = and
+39 = tick
+40 = left paren
+41 = right paren
+42 = star
+43 = plus
+44 = comma
+45 = dash
+46 = dot
+47 = slash
+58 = colon
+59 = semi
+60 = less
+61 = equals
+62 = greater
+63 = question
+64 = at
+91 = left bracket
+92 = backslash
+93 = right bracket
+94 = caret
+95 = line
+96 = grav
+123 = left brace
+124 = bar
+125 = right brace
+126 = tilda
+
