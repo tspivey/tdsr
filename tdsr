@@ -13,6 +13,8 @@ import subprocess
 import time
 import configparser
 import re
+import argparse
+import shlex
 
 CURSOR_TIMEOUT = 0.02
 class State:
@@ -114,17 +116,25 @@ state = State()
 speech_buffer = StringIO()
 lastkey = ""
 def main():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
+	parser.add_argument('program', action='store', nargs='*')
+	args = parser.parse_args()
+	if args.speech_server is None:
+		speech_server = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'mac')
+	else:
+		speech_server = shlex.split(args.speech_server)
 	s = struct.pack('HHHH', 0, 0, 0, 0)
 	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, s))
 	global pipe, screen
-	pipe = subprocess.Popen(os.path.expanduser('~/mac'), shell=True, stdin=subprocess.PIPE)
+	pipe = subprocess.Popen(speech_server, stdin=subprocess.PIPE)
 	state.config.read(os.path.expanduser('~/.tdsr.cfg'))
 	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))
 	pid, fd = os.forkpty()
 	if pid == 0:
-		handle_child()
+		handle_child(args)
 	screen = MyScreen(cols, rows)
 	stream = pyte.Stream()
 	stream.attach(screen)
@@ -154,8 +164,12 @@ def main():
 			os.write(1, bytes)
 		run_scheduled()
 
-def handle_child():
-	os.execv(os.environ['SHELL'], ['bash', '-i'])
+def handle_child(args):
+	if args.program:
+			program = shlex.split(" ".join(args.program))
+	else:
+		program = [os.environ["SHELL"]]
+	os.execv(program[0], program)
 
 newbytes = StringIO()
 in_escape = False
