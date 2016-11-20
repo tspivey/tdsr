@@ -520,8 +520,15 @@ def copy_text(start_y, start_x, end_y, end_x):
 	cols = (end_x - start_x) + 1
 	display = screen.display
 	buf = []
+	start = start_x
 	for y in range(lines):
-		data = display[start_y+y][start_x:start_x+cols].rstrip()
+		if lines > 1 and y < lines - 1:
+			end = screen.columns - 1
+		else:
+			end = end_x
+		if y > 0:
+			start = 0
+		data = display[start_y+y][start:end + 1].rstrip()
 		buf.append(data)
 	buf = "\n".join(buf)
 	copy_to_clip(buf)
