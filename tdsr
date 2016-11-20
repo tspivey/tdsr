@@ -169,9 +169,15 @@ def main():
 		if fd in r:
 			try:
 				bytes = os.read(fd, 4096)
-			except OSError:
+				if bytes == b'':
+					raise EOFError
+				while has_more(fd):
+					data = os.read(fd, 4096)
+					if data == b'':
+						raise EOFError
+					bytes += data
+			except EOFError:
 				sys.exit(0)
-			logger.debug("Read %d bytes (more: %r) from fd: %r" % (len(bytes), has_more(fd), bytes))
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
