@@ -303,14 +303,12 @@ class MyScreen(pyte.Screen):
 
 	def draw(self, text):
 		global lastkey
+		add_to_buffer = True
 		if text == lastkey:
-			lastkey = ""
-			return super(MyScreen, self).draw(text)
-		else:
-			lastkey = ""
-		if not state.silence:
-			speech_buffer.write(text)
+			add_to_buffer = False
 		super(MyScreen, self).draw(text)
+		if add_to_buffer and not state.silence:
+			speech_buffer.write(text)
 
 	def tab(self):
 		if not state.silence:
