@@ -15,6 +15,9 @@ import configparser
 import re
 import argparse
 import shlex
+import logging
+logger = logging.getLogger("tdsr")
+logger.addHandler(logging.NullHandler())
 
 TDSR_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_CONFIG = os.path.join(TDSR_DIR, 'tdsr.cfg.dist')
@@ -121,12 +124,20 @@ lastkey = ""
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
+	parser.add_argument('--debug', action='store_true')
 	parser.add_argument('program', action='store', nargs='*')
 	args = parser.parse_args()
 	if args.speech_server is None:
 		speech_server = os.path.join(TDSR_DIR, 'mac')
 	else:
 		speech_server = shlex.split(args.speech_server)
+	if args.debug:
+		logger.setLevel(logging.DEBUG)
+		formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+		fh = logging.FileHandler('tdsr.log')
+		fh.setFormatter(formatter)
+		logger.addHandler(fh)
+		logger.debug("TDSR started")
 	s = struct.pack('HHHH', 0, 0, 0, 0)
 	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(0, termios.TIOCGWINSZ, s))
 	global pipe, screen
@@ -160,6 +171,7 @@ def main():
 				bytes = os.read(fd, 4096)
 			except OSError:
 				sys.exit(0)
+			logger.debug("Read %d bytes (more: %r) from fd: %r" % (len(bytes), has_more(fd), bytes))
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
@@ -431,6 +443,12 @@ def nextword():
 def handle_silence():
 	state.silence = not state.silence
 	say("on" if state.silence else "off")
+
+def has_more(fd):
+	r, w, e = select.select([fd], [], [], 0)
+	if fd in r:
+		return True
+	return False
 
 keymap = {
 	b'\x1bi': lambda: sayline(state.revy),
