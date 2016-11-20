@@ -127,7 +127,12 @@ def handle_line(line):
 	elif line[0] == u"x":
 		synth.stop()
 	elif line[0] == u"l":
-		synth.speak(u"[[char ltrl]] %s [[char norm]]" % line[1:])
+		prefix = u"[[char ltrl]]"
+		suffix = "[[char norm]]"
+		if len(line) == 2 and line[1].isupper():
+			prefix += u"[[pbas +10]]"
+			suffix += u"[[pbas -10]]"
+		synth.speak(prefix+line[1:]+suffix)
 	elif line[0] == u"r":
 		rate = line[1:]
 
