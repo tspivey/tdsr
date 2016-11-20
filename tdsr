@@ -78,6 +78,7 @@ class ConfigHandler(KeyHandler):
 		self.keymap = {
 			b'r': self.set_rate,
 			b'p': self.set_process_symbols,
+			b'd': self.set_delay,
 		}
 		super().__init__(self.keymap)
 
@@ -102,6 +103,23 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['process_symbols'] = str(current)
 		state.save_config()
 		say("on" if current else "off")
+
+	def set_delay(self):
+		say("Cursor delay")
+		state.key_handlers.append(BufferHandler(on_accept=self.set_delay2))
+
+	def set_delay2(self, val):
+		global CURSOR_TIMEOUT
+		try:
+			val = int(val)
+		except ValueError:
+			say("Invalid value")
+			return
+		val/=1000
+		CURSOR_TIMEOUT = val
+		state.config['speech']['cursor_delay'] = str(val)
+		state.save_config()
+		say("Confirmed")
 
 	def handle_unknown_key(self, data):
 		if data == b'\r' or data == b'\n':
@@ -147,6 +165,7 @@ state = State()
 speech_buffer = StringIO()
 lastkey = ""
 def main():
+	global CURSOR_TIMEOUT
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
 	parser.add_argument('--debug', action='store_true')
@@ -174,6 +193,8 @@ def main():
 	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))
+	if 'cursor_delay' in state.config['speech']:
+		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
 	pid, fd = os.forkpty()
 	if pid == 0:
 		handle_child(args)
