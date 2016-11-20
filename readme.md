@@ -36,6 +36,8 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt c - config. Once in here, r sets rate, p toggles symbol processing and enter exits.
 The configuration is saved.
 * alt q - quiet mode on/off. When on, text is not automatically read.
+* alt r - start/end selection.
+* alt v - copy mode. Press l to copy the line the review cursor is on, or s to copy the screen.
 
 ##Symbols
 Symbols can be added in the configuration file (```~/.tdsr.cfg```),

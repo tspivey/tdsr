@@ -16,6 +16,7 @@ import re
 import argparse
 import shlex
 import logging
+import platform
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -35,6 +36,8 @@ class State:
 		self.config['speech'] = {'process_symbols': 'false'}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
+		self.copy_x = None
+		self.copy_y = None
 
 	def save_config(self):
 		with open(CONFIG_FILE, 'w') as fp:
@@ -104,6 +107,28 @@ class ConfigHandler(KeyHandler):
 		if data == b'\r' or data == b'\n':
 			say("exit")
 			return KeyHandler.REMOVE
+
+class CopyHandler(KeyHandler):
+	def __init__(self):
+		keymap = {
+			b'l': self.copy_line,
+			b's': self.copy_screen,
+		}
+		super().__init__(keymap)
+
+	def copy_line(self):
+		copy_text(state.revy, 0, state.revy, screen.columns-1)
+		say("copied")
+		return KeyHandler.REMOVE
+
+	def copy_screen(self):
+		copy_text(0, 0, screen.lines - 1, screen.columns - 1)
+		say("copied")
+		return KeyHandler.REMOVE
+
+	def handle_unknown_key(self, data):
+		say("unknown key")
+		return KeyHandler.REMOVE
 
 class BufferHandler(KeyHandler):
 	def __init__(self, on_accept=None):
@@ -374,6 +399,10 @@ def config():
 	say("config")
 	state.key_handlers.append(ConfigHandler())
 
+def copy_mode():
+	say("copy")
+	state.key_handlers.append(CopyHandler())
+
 def get_char(d=None):
 	if d is None:
 		d = screen.display
@@ -450,6 +479,39 @@ def handle_silence():
 	state.silence = not state.silence
 	say("on" if state.silence else "off")
 
+def handle_clipboard():
+	if state.copy_x is None:
+		state.copy_x = state.revx
+		state.copy_y = state.revy
+		say("select")
+		return
+	end_x, end_y = state.revx, state.revy
+	copy_text(state.copy_y, state.copy_x, end_y, end_x)
+	state.copy_x = None
+	say("copied")
+
+def copy_text(start_y, start_x, end_y, end_x):
+	if start_x > end_x:
+		start_x, end_x = end_x, start_x
+	if start_y > end_y:
+		start_y, end_y = end_y, start_y
+	lines = (end_y - start_y) + 1
+	cols = (end_x - start_x) + 1
+	display = screen.display
+	buf = []
+	for y in range(lines):
+		data = display[start_y+y][start_x:start_x+cols].rstrip()
+		buf.append(data)
+	buf = "\n".join(buf)
+	copy_to_clip(buf)
+
+def copy_to_clip(data):
+	if platform.system() == 'Darwin':
+		data = data.encode('utf-8')
+		proc = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
+		proc.stdin.write(data)
+		proc.stdin.close()
+
 def has_more(fd):
 	r, w, e = select.select([fd], [], [], 0)
 	if fd in r:
@@ -468,6 +530,8 @@ keymap = {
 	b'\x1b.': nextchar,
 	b'\x1bc': config,
 	b'\x1bq': handle_silence,
+	b'\x1br': handle_clipboard,
+	b'\x1bv': copy_mode,
 	b'\x08': handle_backspace,
 	b'\x7f': handle_backspace,
 	b'\x1b[A': arrow_up,
