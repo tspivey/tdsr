@@ -464,6 +464,7 @@ def move_nextchar():
 def prevword():
 	if state.revx == 0:
 		say("left")
+		sayword()
 		return
 	d = screen.display
 	#Move over any existing word we might be in the middle of
@@ -507,6 +508,7 @@ def nextword():
 	if state.revx == m and get_char(d) == ' ':
 		say("right")
 		state.revx = revx
+		sayword()
 		return
 	sayword()
 
