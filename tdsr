@@ -299,6 +299,22 @@ def nextchar():
 		state.revx = screen.columns - 1
 	saychar(state.revy, state.revx)
 
+def topOfScreen():
+	state.revy = 0
+	sayline(state.revy)
+
+def bottomOfScreen():
+	state.revy = screen.lines - 1
+	sayline(state.revy)
+
+def startOfLine():
+	state.revx = 0
+	saychar(state.revy, state.revx)
+
+def endOfLine():
+	state.revx = screen.columns - 1
+	saychar(state.revy, state.revx)
+
 class MyScreen(pyte.Screen):
 
 	def draw(self, text):
@@ -554,6 +570,12 @@ keymap = {
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b.': nextchar,
+	b'\x1bU': topOfScreen,
+	b'\x1bO': bottomOfScreen,
+	b'\x1bM': startOfLine,
+	b'\x1b>': endOfLine,
+	# For the Hungarian keyboard layout
+	b'\x1b:': endOfLine,
 	b'\x1bc': config,
 	b'\x1bq': handle_silence,
 	b'\x1br': handle_clipboard,
