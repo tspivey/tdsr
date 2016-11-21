@@ -1,8 +1,10 @@
 #!/usr/bin/python
-from Foundation import *
+from Foundation import (
+	NSObject, NSFileHandle, NSNotificationCenter,
+	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem,
+)
 from AppKit import NSSpeechSynthesizer, NSSpeechRecentSyncProperty
 from PyObjCTools import AppHelper
-import struct
 import threading
 
 rate = None
