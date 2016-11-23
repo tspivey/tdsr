@@ -482,7 +482,7 @@ def sayword():
 	word = ""
 	revx, revy = state.revx, state.revy
 	d = screen.display
-	while state.revx > 0 and get_char(d) != ' ':
+	while state.revx > 0 and get_char(d) != ' ' and d[state.revy][state.revx - 1] != ' ':
 		move_prevchar()
 	if state.revx == 0 and get_char(d) == ' ':
 		say("space")
