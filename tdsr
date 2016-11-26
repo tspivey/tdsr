@@ -322,6 +322,7 @@ class MyScreen(pyte.Screen):
 		add_to_buffer = True
 		if text == lastkey:
 			add_to_buffer = False
+		lastkey = ""
 		super(MyScreen, self).draw(text)
 		if add_to_buffer and not state.silence:
 			speech_buffer.write(text)
