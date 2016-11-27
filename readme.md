@@ -16,11 +16,10 @@ Compatibility is not guaranteed between versions.
 * speech server
 
 ##Installation on macOS
+1. Install Python 3. If using [Homebrew](http://brew.sh/), `brew install python3`.
 1. Clone this repository.
 ```git clone https://github.com/tspivey/tdsr.git```
-1. Install python3. The following instructions assume you'll be using Homebrew.
-See its documentation for installation instructions.
-1. brew install python3
+1. cd tdsr
 1. pip3 install -Ur requirements.txt
 1. Assuming the repository is in ```~/tdsr```, run:
 `~/tdsr/tdsr`
@@ -33,11 +32,17 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt u, i, o - read previous, current, next line
 * alt j, k, l - read previous, current, next word
 * alt m, comma, dot - read previous, current, next character
-* alt c - config. Once in here, r sets rate, p toggles symbol processing and enter exits.
-The configuration is saved.
+* alt c - config.
 * alt q - quiet mode on/off. When on, text is not automatically read.
 * alt r - start/end selection.
 * alt v - copy mode. Press l to copy the line the review cursor is on, or s to copy the screen.
+
+##Configuration
+Once in the config menu, you can use:
+* r - set rate.
+* p - toggle symbol processing.
+* d - set cursor delay (in MS). The default is 20.
+* Enter - exit, saving the configuration.
 
 ##Symbols
 Symbols can be added in the configuration file (```~/.tdsr.cfg```),
