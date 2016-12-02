@@ -33,7 +33,7 @@ class State:
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
-		self.config['speech'] = {'process_symbols': 'false'}
+		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
@@ -87,6 +87,7 @@ class ConfigHandler(KeyHandler):
 			b'r': self.set_rate,
 			b'p': self.set_process_symbols,
 			b'd': self.set_delay,
+			b'e': self.set_echo,
 		}
 		super().__init__(self.keymap)
 
@@ -109,6 +110,13 @@ class ConfigHandler(KeyHandler):
 		current = state.config.getboolean('speech', 'process_symbols', fallback=False)
 		current = not current
 		state.config['speech']['process_symbols'] = str(current)
+		state.save_config()
+		say("on" if current else "off")
+
+	def set_echo(self):
+		current = state.config.getboolean('speech', 'key_echo', fallback=True)
+		current = not current
+		state.config['speech']['key_echo'] = str(current)
 		state.save_config()
 		say("on" if current else "off")
 
@@ -330,6 +338,8 @@ class MyScreen(pyte.Screen):
 		add_to_buffer = True
 		if text == lastkey:
 			add_to_buffer = False
+			if len(text) == 1 and state.config.getboolean('speech', 'key_echo', fallback=False):
+				say_character(text)
 		lastkey = ""
 		super(MyScreen, self).draw(text)
 		if add_to_buffer and not state.silence:
