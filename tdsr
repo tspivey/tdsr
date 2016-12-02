@@ -600,6 +600,7 @@ keymap = {
 	b'\x1bq': handle_silence,
 	b'\x1br': handle_clipboard,
 	b'\x1bv': copy_mode,
+	b'\x1bx': silence,
 	b'\x08': handle_backspace,
 	b'\x7f': handle_backspace,
 	b'\x1b[A': arrow_up,
