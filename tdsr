@@ -60,14 +60,22 @@ class KeyHandler:
 	def __init__(self, keymap, fd=None):
 		self.keymap = keymap
 		self.fd = fd
+		self.last_key = None
 
 	def process(self, data):
+		repeat = data + data
 		if data not in self.keymap:
+			self.last_key = data
 			return self.handle_unknown_key(data)
+		elif self.last_key == data and repeat in self.keymap:
+			result = self.keymap[repeat]()
+			self.last_key = data
+			return result
 		else:
 			result = self.keymap[data]()
 			if result == KeyHandler.PASSTHROUGH:
 				os.write(self.fd, data)
+			self.last_key = data
 			return result
 
 	def handle_unknown_key(self, data):
@@ -479,7 +487,7 @@ def prevword():
 		move_prevchar()
 	sayword()
 
-def sayword():
+def sayword(spell=False):
 	word = ""
 	revx, revy = state.revx, state.revy
 	d = screen.display
@@ -493,7 +501,10 @@ def sayword():
 		move_nextchar()
 		if get_char(d) == ' ':
 			break
-	say(word)
+	if spell:
+		say(' '.join(word))
+	else:
+		say(word)
 	state.revx, state.revy = revx, revy
 
 def nextword():
@@ -569,6 +580,7 @@ keymap = {
 	b'\x1bo': nextline,
 	b'\x1bj': prevword,
 	b'\x1bk': sayword,
+	'\x1bk\x1bk': lambda: sayword(spell=True),
 	b'\x1bl': nextword,
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
