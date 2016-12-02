@@ -24,6 +24,14 @@ TDSR_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
 DEFAULT_CONFIG = os.path.join(TDSR_DIR, 'tdsr.cfg.dist')
 CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
+PHONETICS = {x[0]: x for x in [
+		'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
+		'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
+		'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra',
+		'tango', 'uniform', 'victor', 'wiskey', 'x ray', 'yankee',
+		'zulu']
+}
+
 class State:
 	def __init__(self):
 		self.revy = 0
@@ -304,9 +312,14 @@ def prevchar():
 		state.revx = 0
 	saychar(state.revy, state.revx)
 
-def saychar(y, x):
+def saychar(y, x, phonetically=False):
 	char = screen.display[y][x]
-	say_character(char)
+	lchar = char.lower()
+	if phonetically and lchar in PHONETICS:
+		pipe.stdin.write(b's%s\n' % PHONETICS[lchar].encode('utf-8'))
+		pipe.stdin.flush()
+	else:
+		say_character(char)
 
 def nextchar():
 	state.revx += 1
@@ -599,6 +612,7 @@ keymap = {
 	b'\x1bl': nextword,
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
+	b'\x1b,\x1b,': lambda: saychar(state.revy, state.revx, phonetically=True),
 	b'\x1b.': nextchar,
 	b'\x1bU': topOfScreen,
 	b'\x1bO': bottomOfScreen,
