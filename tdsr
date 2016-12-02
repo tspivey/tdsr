@@ -585,7 +585,7 @@ keymap = {
 	b'\x1bo': nextline,
 	b'\x1bj': prevword,
 	b'\x1bk': sayword,
-	'\x1bk\x1bk': lambda: sayword(spell=True),
+	b'\x1bk\x1bk': lambda: sayword(spell=True),
 	b'\x1bl': nextword,
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
