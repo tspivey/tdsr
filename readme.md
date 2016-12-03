@@ -32,6 +32,8 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt u, i, o - read previous, current, next line
 * alt j, k, l - read previous, current, next word
 * alt m, comma, dot - read previous, current, next character
+* alt k twice - spell current word
+* alt comma twice - say current character phonetically
 * alt c - config.
 * alt q - quiet mode on/off. When on, text is not automatically read.
 * alt r - start/end selection.
