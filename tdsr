@@ -403,11 +403,11 @@ def sb():
 	if not state.tempsilence:
 		say(data)
 
-def say(data):
+def say(data, force_process_symbols=False):
 	data = data.strip()
 	def replace_symbols(m):
 		return " %s " % state.config['symbols'][str(ord(m.group(0)))]
-	if state.symbols_re is not None and state.config.getboolean('speech', 'process_symbols', fallback=False):
+	if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
 		data = state.symbols_re.sub(replace_symbols, data)
 	pipe.stdin.write(b"s" + data.encode('utf-8') + b"\n")
 	pipe.stdin.flush()
@@ -530,7 +530,7 @@ def sayword(spell=False):
 		if get_char(d) == ' ':
 			break
 	if spell:
-		say(' '.join(word))
+		say(' '.join(word), force_process_symbols=True)
 	else:
 		say(word)
 	state.revx, state.revy = revx, revy
