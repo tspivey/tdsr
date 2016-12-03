@@ -243,15 +243,11 @@ def main():
 			process_input(bytes, fd)
 		if fd in r:
 			try:
-				bytes = os.read(fd, 4096)
-				if bytes == b'':
-					raise EOFError
-				while has_more(fd):
-					data = os.read(fd, 4096)
-					if data == b'':
-						raise EOFError
-					bytes += data
-			except EOFError:
+				bytes = read_all(fd)
+			except (EOFError, OSError):
+				sb()
+				pipe.stdin.close()
+				pipe.wait()
 				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
@@ -262,6 +258,17 @@ def main():
 				sb()
 			os.write(1, bytes)
 		run_scheduled()
+
+def read_all(fd):
+	bytes = os.read(fd, 4096)
+	if bytes == b'':
+		raise EOFError
+	while has_more(fd):
+		data = os.read(fd, 4096)
+		if data == b'':
+			raise EOFError
+		bytes += data
+	return bytes
 
 def handle_child(args):
 	if args.program:
