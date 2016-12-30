@@ -17,6 +17,7 @@ import argparse
 import shlex
 import logging
 import platform
+from stream import Stream
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -228,7 +229,7 @@ def main():
 	if pid == 0:
 		handle_child(args)
 	screen = MyScreen(cols, rows)
-	stream = pyte.Stream()
+	stream = Stream()
 	stream.attach(screen)
 	decoder = codecs.getincrementaldecoder('utf-8')()
 	default_key_handler = KeyHandler(keymap, fd)
