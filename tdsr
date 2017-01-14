@@ -125,14 +125,14 @@ class ConfigHandler(KeyHandler):
 		current = not current
 		state.config['speech']['process_symbols'] = str(current)
 		state.save_config()
-		say("on" if current else "off")
+		say("process symbols on" if current else "process symbols off")
 
 	def set_echo(self):
 		current = state.config.getboolean('speech', 'key_echo', fallback=True)
 		current = not current
 		state.config['speech']['key_echo'] = str(current)
 		state.save_config()
-		say("on" if current else "off")
+		say("character echo on" if current else "character echo off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -166,12 +166,12 @@ class CopyHandler(KeyHandler):
 
 	def copy_line(self):
 		copy_text(state.revy, 0, state.revy, screen.columns-1)
-		say("copied")
+		say("line")
 		return KeyHandler.REMOVE
 
 	def copy_screen(self):
 		copy_text(0, 0, screen.lines - 1, screen.columns - 1)
-		say("copied")
+		say("screen")
 		return KeyHandler.REMOVE
 
 	def handle_unknown_key(self, data):
