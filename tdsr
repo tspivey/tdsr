@@ -567,7 +567,7 @@ def nextword():
 
 def handle_silence():
 	state.silence = not state.silence
-	say("on" if state.silence else "off")
+	say("quiet on" if state.silence else "quiet off")
 
 def handle_clipboard():
 	if state.copy_x is None:
