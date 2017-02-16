@@ -407,6 +407,12 @@ class MyScreen(pyte.Screen):
 			return
 		super().erase_in_display(how, private=private)
 
+	def cursor_down(self, count=None):
+		self.cursor.y += count or 1
+		top, bottom = 0, self.margins[1]
+		self.cursor.x = min(max(0, self.cursor.x), self.columns - 1)
+		self.cursor.y = min(max(top, self.cursor.y), bottom)
+
 def sb():
 	data = speech_buffer.getvalue()
 	speech_buffer.truncate(0)
