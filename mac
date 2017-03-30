@@ -8,6 +8,7 @@ from PyObjCTools import AppHelper
 import threading
 
 rate = None
+volume = None
 
 class QueuedSynth(NSObject):
 	def init_(self, handler):
@@ -117,12 +118,14 @@ def gotLine(observer, line):
 		handle_line(l)
 
 def handle_line(line):
-	global rate
+	global rate, volume
 	line = line.decode('utf-8', 'replace')
 	if line[0] == u"s":
 		l = ""
 		if rate:
 			l += u"[[rate %s]]" % rate
+		if volume:
+			l += u"[[volm %s]]" % volume
 		l += line[1:].replace('[[', ' ')
 		l = l.replace(u'\u23ce', ' ')
 		synth.speak(l)
@@ -137,6 +140,8 @@ def handle_line(line):
 		synth.speak(prefix+line[1:]+suffix)
 	elif line[0] == u"r":
 		rate = line[1:]
+	elif line[0] == u"v":
+		volume = str(int(line[1:]) / 100.0)
 
 def gotError(observer, err):
 	print "error:", err

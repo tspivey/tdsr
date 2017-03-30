@@ -42,6 +42,7 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 ##Configuration
 Once in the config menu, you can use:
 * r - set rate.
+* v - set volume (value between 0 and 100).
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
 * Enter - exit, saving the configuration.

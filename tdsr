@@ -99,6 +99,7 @@ class ConfigHandler(KeyHandler):
 	def __init__(self):
 		self.keymap = {
 			b'r': self.set_rate,
+			b'v': self.set_volume,
 			b'p': self.set_process_symbols,
 			b'd': self.set_delay,
 			b'e': self.set_echo,
@@ -117,6 +118,21 @@ class ConfigHandler(KeyHandler):
 			return
 		set_rate(val)
 		state.config['speech']['rate'] = str(val)
+		state.save_config()
+		say("Confirmed")
+
+	def set_volume(self):
+		say("volume")
+		state.key_handlers.append(BufferHandler(on_accept=self.set_volume2))
+
+	def set_volume2(self, val):
+		try:
+			val = int(val)
+		except ValueError:
+			say("Invalid value")
+			return
+		set_volume(val)
+		state.config['speech']['volume'] = str(val)
 		state.save_config()
 		say("Confirmed")
 
@@ -223,6 +239,8 @@ def main():
 	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))
+	if 'volume' in state.config['speech']:
+		set_volume(int(state.config['speech']['rate']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
 	pid, fd = os.forkpty()
@@ -445,6 +463,10 @@ def say_character(ch):
 
 def set_rate(rate):
 	pipe.stdin.write(b'r%d\n' % rate)
+	pipe.stdin.flush()
+
+def set_volume(volume):
+	pipe.stdin.write(b'v%d\n' % volume)
 	pipe.stdin.flush()
 
 def arrow_up():
