@@ -218,7 +218,11 @@ def main():
 	parser.add_argument('program', action='store', nargs='*')
 	args = parser.parse_args()
 	if args.speech_server is None:
-		speech_server = os.path.join(TDSR_DIR, 'mac')
+		if platform.system() == 'Darwin':
+			speech_server = os.path.join(TDSR_DIR, 'mac')
+		else:
+			# Works on Linux, hopefully other places too:
+			speech_server = os.path.join(TDSR_DIR, 'speechdispatcher')
 	else:
 		speech_server = shlex.split(args.speech_server)
 	if args.debug:
