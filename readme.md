@@ -1,7 +1,7 @@
 #TDSR
 This is a console-based screen reader.
 It has been tested under macOS and Linux.
-(However, no Linux speech server currently exists.)
+It might also run on FreeBSD and other *nix systems, but this hasn't been tested.
 
 ##What works
 * Reading output
@@ -24,6 +24,12 @@ Compatibility is not guaranteed between versions.
 1. Assuming the repository is in ```~/tdsr```, run:
 `~/tdsr/tdsr`
 and it should start speaking.
+
+##Installation on Linux
+
+1. Install Python 3 and Speech Dispatcher.  They should be available from your package manager.
+You may also need to install Speech Dispatcher's Python bindings, if they were packaged separately by your distro.
+1. Follow the rest of the instructions for Mac OS X, starting with "Clone this repository".
 
 ##Terminal setup
 Open Terminal preferences, under Profiles check Use Option as Meta key.
