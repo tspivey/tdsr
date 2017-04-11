@@ -1,21 +1,21 @@
-#TDSR
+# TDSR
 This is a console-based screen reader.
 It has been tested under macOS and Linux.
 It might also run on FreeBSD and other *nix systems, but this hasn't been tested.
 
-##What works
+## What works
 * Reading output
 * Reading by line, word and character
 * cursor keys (waits some amount of time and speaks)
 
-##Note
+## Note
 Compatibility is not guaranteed between versions.
-##Requirements
+## Requirements
 * Python 3
 * pyte
 * speech server
 
-##Installation on macOS
+## Installation on macOS
 1. Install Python 3. If using [Homebrew](http://brew.sh/), `brew install python3`.
 1. Clone this repository.
 ```git clone https://github.com/tspivey/tdsr.git```
@@ -25,15 +25,15 @@ Compatibility is not guaranteed between versions.
 `~/tdsr/tdsr`
 and it should start speaking.
 
-##Installation on Linux
+## Installation on Linux
 
 1. Install Python 3 and Speech Dispatcher.  They should be available from your package manager.
 You may also need to install Speech Dispatcher's Python bindings, if they were packaged separately by your distro.
 1. Follow the rest of the instructions for Mac OS X, starting with "Clone this repository".
 
-##Terminal setup
+## Terminal setup
 Open Terminal preferences, under Profiles check Use Option as Meta key.
-##Keys
+## Keys
 (alt refers to the meta key.)
 * alt u, i, o - read previous, current, next line
 * alt j, k, l - read previous, current, next word
@@ -45,7 +45,7 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt r - start/end selection.
 * alt v - copy mode. Press l to copy the line the review cursor is on, or s to copy the screen.
 
-##Configuration
+## Configuration
 Once in the config menu, you can use:
 * r - set rate.
 * v - set volume (value between 0 and 100).
@@ -53,7 +53,7 @@ Once in the config menu, you can use:
 * d - set cursor delay (in MS). The default is 20.
 * Enter - exit, saving the configuration.
 
-##Symbols
+## Symbols
 Symbols can be added in the configuration file (```~/.tdsr.cfg```),
 under the symbols section.
 
