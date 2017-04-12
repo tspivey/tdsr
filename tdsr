@@ -48,6 +48,8 @@ class State:
 		self.symbols_Re = None
 		self.copy_x = None
 		self.copy_y = None
+		self.last_drawn_x = 0
+		self.last_drawn_y = 0
 
 	def save_config(self):
 		with open(CONFIG_FILE, 'w') as fp:
@@ -391,7 +393,11 @@ class MyScreen(pyte.Screen):
 		lastkey = ""
 		super(MyScreen, self).draw(text)
 		if add_to_buffer and not state.silence:
+			if screen.cursor.y == state.last_drawn_y and screen.cursor.x - state.last_drawn_x > 1:
+				speech_buffer.write(' ')
 			speech_buffer.write(text)
+			state.last_drawn_x = screen.cursor.x
+			state.last_drawn_y = screen.cursor.y
 
 	def tab(self):
 		if not state.silence:
