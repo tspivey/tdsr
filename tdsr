@@ -255,7 +255,7 @@ def main():
 	screen = MyScreen(cols, rows)
 	stream = Stream()
 	stream.attach(screen)
-	decoder = codecs.getincrementaldecoder('utf-8')()
+	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
 	s = fcntl.ioctl(0, termios.TIOCGWINSZ, s)
