@@ -51,6 +51,7 @@ class State:
 		self.copy_y = None
 		self.last_drawn_x = 0
 		self.last_drawn_y = 0
+		self.delaying_output = False
 
 	def save_config(self):
 		with open(CONFIG_FILE, 'w') as fp:
@@ -287,10 +288,15 @@ def main():
 			stream.feed(decoded_bytes)
 			if screen.cursor.x != x or screen.cursor.y != y:
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
-			if not state.silence:
-				sb()
+			if not state.silence and not state.tempsilence:
+				if speech_buffer.tell() > 0 and not state.delaying_output:
+					schedule(0.001, read_buffer_scheduled)
 			os.write(1, bytes)
 		run_scheduled()
+
+def read_buffer_scheduled():
+	state.delaying_output = False
+	sb()
 
 def read_all(fd):
 	bytes = os.read(fd, 4096)
