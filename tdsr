@@ -255,6 +255,7 @@ def main():
 	screen = MyScreen(cols, rows)
 	stream = Stream()
 	stream.attach(screen)
+	screen.set_charset('B', '(')
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
