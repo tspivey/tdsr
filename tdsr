@@ -268,10 +268,13 @@ def main():
 		r, w, e = select.select([sys.stdin, fd, signal_pipe[0]], [], [], time_until_next_delayed())
 		if signal_pipe[0] in r:
 			os.read(signal_pipe[0], 1)
+			old_x, old_y = screen.cursor.x, screen.cursor.y
 			rows, cols = resize_terminal(fd)
 			screen.resize(rows, cols)
 			state.revx = min(state.revx, cols - 1)
 			state.revy = min(state.revy, rows - 1)
+			screen.cursor.x = min(old_x, cols - 1)
+			screen.cursor.y = min(old_y, rows - 1)
 		if sys.stdin in r:
 			bytes = os.read(0, 4096)
 			process_input(bytes, fd)
@@ -676,7 +679,8 @@ def resize_terminal(fd):
 	s = struct.pack('HHHH', 0, 0, 0, 0)
 	s = fcntl.ioctl(0, termios.TIOCGWINSZ, s)
 	fcntl.ioctl(fd, termios.TIOCSWINSZ, s)
-	return s[0], s[1]
+	rows, cols, _, _ = struct.unpack('hhhh', s)
+	return rows, cols
 
 def handle_sigwinch(*args):
 	os.write(signal_pipe[1], b'w')
