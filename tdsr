@@ -260,6 +260,7 @@ def main():
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
+	termios.tcsetattr(fd, termios.TCSADRAIN, old)
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
