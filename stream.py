@@ -1,3 +1,5 @@
+#Copyright (C) 2016, 2017  Tyler Spivey
+#See the license in COPYING.txt
 from collections import defaultdict
 from pyte import control as ctrl, escape as esc
 from pyte.streams import Stream

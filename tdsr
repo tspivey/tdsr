@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#tdsr, a terminal screen reader
+#Copyright (C) 2016, 2017  Tyler Spivey
+#See the license in COPYING.txt
 import sys
 import os
 import select
