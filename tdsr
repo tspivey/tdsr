@@ -267,7 +267,7 @@ def main():
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
-	say("TDSR active")
+	say("tdsr, presented by Lighthouse of San Francisco")
 	while True:
 		r, w, e = select.select([sys.stdin, fd, signal_pipe[0]], [], [], time_until_next_delayed())
 		if signal_pipe[0] in r:
