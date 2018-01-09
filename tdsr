@@ -250,7 +250,7 @@ def main():
 	if 'rate' in state.config['speech']:
 		set_rate(int(state.config['speech']['rate']))
 	if 'volume' in state.config['speech']:
-		set_volume(int(state.config['speech']['rate']))
+		set_volume(int(state.config['speech']['volume']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
 	pid, fd = os.forkpty()
