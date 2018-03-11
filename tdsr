@@ -21,7 +21,6 @@ import shlex
 import logging
 import platform
 import signal
-from stream import Stream
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -257,9 +256,9 @@ def main():
 	if pid == 0:
 		handle_child(args)
 	screen = MyScreen(cols, rows)
-	stream = Stream()
+	stream = pyte.Stream()
 	stream.attach(screen)
-	screen.set_charset('B', '(')
+	screen.define_charset('B', '(')
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
@@ -405,17 +404,22 @@ def endOfLine():
 class MyScreen(pyte.Screen):
 
 	def draw(self, text):
+		for c in text:
+			self.draw2(c)
+
+	def draw2(self, text):
 		global lastkey
+		logger.debug("Drawing %r", text)
 		add_to_buffer = True
 		if text == lastkey:
 			add_to_buffer = False
 			if len(text) == 1 and state.config.getboolean('speech', 'key_echo', fallback=False):
 				say_character(text)
 		lastkey = ""
+		if screen.cursor.y == state.last_drawn_y and screen.cursor.x - state.last_drawn_x > 1:
+			speech_buffer.write(' ')
 		super(MyScreen, self).draw(text)
 		if add_to_buffer and not state.silence:
-			if screen.cursor.y == state.last_drawn_y and screen.cursor.x - state.last_drawn_x > 1:
-				speech_buffer.write(' ')
 			speech_buffer.write(text)
 			state.last_drawn_x = screen.cursor.x
 			state.last_drawn_y = screen.cursor.y
@@ -434,11 +438,6 @@ class MyScreen(pyte.Screen):
 			speech_buffer.seek(speech_buffer.tell() - 1)
 		super(MyScreen, self).backspace()
 
-	def set_margins(self, top=None, bottom=None):
-		if top == 0 and bottom is None:
-			top, bottom = 1, self.lines
-		super().set_margins(top=top, bottom=bottom)
-
 	def reset_mode(self, *modes, **kwargs):
 		if 3 in modes:
 			modes = list(modes)
@@ -455,12 +454,6 @@ class MyScreen(pyte.Screen):
 		if how == 3:
 			return
 		super().erase_in_display(how, private=private)
-
-	def cursor_down(self, count=None):
-		self.cursor.y += count or 1
-		top, bottom = 0, self.margins[1]
-		self.cursor.x = min(max(0, self.cursor.x), self.columns - 1)
-		self.cursor.y = min(max(top, self.cursor.y), bottom)
 
 def sb():
 	data = speech_buffer.getvalue()
