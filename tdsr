@@ -403,6 +403,11 @@ def endOfLine():
 
 class MyScreen(pyte.Screen):
 
+	def set_margins(self, top=None, bottom=None):
+		if top == 0 and bottom is None:
+			top = None
+		super().set_margins(top=top, bottom=bottom)
+
 	def draw(self, text):
 		for c in text:
 			self.draw2(c)
