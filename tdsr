@@ -514,6 +514,16 @@ def arrow_right():
 	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
 	return KeyHandler.PASSTHROUGH
 
+def beginning_of_command_line():
+	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
+	return KeyHandler.PASSTHROUGH
+
+def end_of_command_line():
+	# When jumping to the end of the command line, the cursor will always land on 'space', so that's why we need to speak the character before the cursor.
+	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x - 1)), True)
+	return KeyHandler.PASSTHROUGH
+
+
 def schedule(timeout, func, set_tempsilence=False):
 	state.delayed_functions.append((time.time() + timeout, func))
 	if set_tempsilence:
@@ -712,6 +722,8 @@ keymap = {
 	b'\x1bx': silence,
 	b'\x08': handle_backspace,
 	b'\x7f': handle_backspace,
+	b'\x01': beginning_of_command_line,
+	b'\x05': end_of_command_line,
 	b'\x1b[A': arrow_up,
 	b'\x1b[B': arrow_down,
 	b'\x1b[C': arrow_right,
