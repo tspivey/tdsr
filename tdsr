@@ -46,7 +46,7 @@ class State:
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
-		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True}
+		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
@@ -109,6 +109,7 @@ class ConfigHandler(KeyHandler):
 			b'p': self.set_process_symbols,
 			b'd': self.set_delay,
 			b'e': self.set_echo,
+			b'c': self.set_cursor_tracking,
 		}
 		super().__init__(self.keymap)
 
@@ -155,6 +156,13 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['key_echo'] = str(current)
 		state.save_config()
 		say("character echo on" if current else "character echo off")
+
+	def set_cursor_tracking(self):
+		current = state.config.getboolean('speech', 'cursor_tracking', fallback=True)
+		current = not current
+		state.config['speech']['cursor_tracking'] = str(current)
+		state.save_config()
+		say("cursor tracking on" if current else "cursor tracking off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -292,7 +300,7 @@ def main():
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
-			if screen.cursor.x != x or screen.cursor.y != y:
+			if state.config.getboolean('speech', 'cursor_tracking') and (screen.cursor.x != x or screen.cursor.y != y):
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
 			if not state.silence and not state.tempsilence:
 				if speech_buffer.tell() > 0 and not state.delaying_output:
