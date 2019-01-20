@@ -432,7 +432,7 @@ class MyScreen(pyte.Screen):
 		if screen.cursor.y == state.last_drawn_y and screen.cursor.x - state.last_drawn_x > 1:
 			speech_buffer.write(' ')
 		super(MyScreen, self).draw(text)
-		if add_to_buffer and not state.silence:
+		if add_to_buffer and not state.silence and not state.tempsilence:
 			speech_buffer.write(text)
 			state.last_drawn_x = screen.cursor.x
 			state.last_drawn_y = screen.cursor.y
