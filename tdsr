@@ -195,13 +195,21 @@ class CopyHandler(KeyHandler):
 		super().__init__(keymap)
 
 	def copy_line(self):
-		copy_text(state.revy, 0, state.revy, screen.columns-1)
-		say("line")
+		try:
+			copy_text(state.revy, 0, state.revy, screen.columns-1)
+		except:
+			say("Failed")
+		else:
+			say("line")
 		return KeyHandler.REMOVE
 
 	def copy_screen(self):
-		copy_text(0, 0, screen.lines - 1, screen.columns - 1)
-		say("screen")
+		try:
+			copy_text(0, 0, screen.lines - 1, screen.columns - 1)
+		except:
+			say("Failed")
+		else:
+			say("screen")
 		return KeyHandler.REMOVE
 
 	def handle_unknown_key(self, data):
@@ -646,9 +654,13 @@ def handle_clipboard():
 		say("select")
 		return
 	end_x, end_y = state.revx, state.revy
-	copy_text(state.copy_y, state.copy_x, end_y, end_x)
+	try:
+		copy_text(state.copy_y, state.copy_x, end_y, end_x)
+	except:
+		say("Failed")
+	else:
+		say("copied")
 	state.copy_x = None
-	say("copied")
 
 def copy_text(start_y, start_x, end_y, end_x):
 	if start_x > end_x:
@@ -673,9 +685,13 @@ def copy_text(start_y, start_x, end_y, end_x):
 	copy_to_clip(buf)
 
 def copy_to_clip(data):
+	data = data.encode('utf-8')
 	if platform.system() == 'Darwin':
-		data = data.encode('utf-8')
 		proc = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
+		proc.stdin.write(data)
+		proc.stdin.close()
+	elif platform.system() == 'Linux':
+		proc = subprocess.Popen(['xclip', '-selection', 'clip'], stdin=subprocess.PIPE)
 		proc.stdin.write(data)
 		proc.stdin.close()
 
