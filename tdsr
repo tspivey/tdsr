@@ -123,7 +123,7 @@ class ConfigHandler(KeyHandler):
 		except ValueError:
 			say("Invalid value")
 			return
-		set_rate(val)
+		synth.set_rate(val)
 		state.config['speech']['rate'] = str(val)
 		state.save_config()
 		say("Confirmed")
@@ -138,7 +138,7 @@ class ConfigHandler(KeyHandler):
 		except ValueError:
 			say("Invalid value")
 			return
-		set_volume(val)
+		synth.set_volume(val)
 		state.config['speech']['volume'] = str(val)
 		state.save_config()
 		say("Confirmed")
@@ -229,6 +229,45 @@ class BufferHandler(KeyHandler):
 		else:
 			self.buffer += data.decode('utf-8')
 
+class Synth:
+	def __init__(self, speech_server):
+		self.pipe = None
+		self.speech_server = speech_server
+		self.rate = None
+		self.volume = None
+
+	def start(self):
+		self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
+		if self.rate:
+			self.set_rate(self.rate)
+		if self.volume:
+			self.set_volume(self.volume)
+
+	def send(self, text):
+		text = text.encode('utf-8')
+		try:
+			self.pipe.stdin.write(text)
+			self.pipe.stdin.flush()
+		except BrokenPipeError:
+			try:
+				self.start()
+				self.pipe.stdin.write(text)
+				self.pipe.stdin.flush()
+			except BrokenPipeError:
+				pass # We'll try to restart next time something is sent
+
+	def set_rate(self, rate):
+		self.rate = rate
+		self.send('r%d\n' % rate)
+
+	def set_volume(self, volume):
+		self.volume = volume
+		self.send('v%d\n' % volume)
+
+	def close(self):
+		self.pipe.stdin.close()
+		self.pipe.wait()
+
 state = State()
 speech_buffer = StringIO()
 lastkey = ""
@@ -255,17 +294,18 @@ def main():
 		logger.addHandler(fh)
 		logger.debug("TDSR started")
 	rows, cols = get_terminal_size(0)
-	global pipe, screen
-	pipe = subprocess.Popen(speech_server, stdin=subprocess.PIPE)
+	global synth, screen
+	synth = Synth(speech_server)
+	synth.start()
 	if os.path.exists(DEFAULT_CONFIG) and not os.path.exists(CONFIG_FILE):
 			state.config.read(DEFAULT_CONFIG)
 			state.save_config()
 	state.config.read(CONFIG_FILE)
 	state.symbols_re = state.build_symbols_re()
 	if 'rate' in state.config['speech']:
-		set_rate(int(state.config['speech']['rate']))
+		synth.set_rate(int(state.config['speech']['rate']))
 	if 'volume' in state.config['speech']:
-		set_volume(int(state.config['speech']['volume']))
+		synth.set_volume(int(state.config['speech']['volume']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
 	pid, fd = os.forkpty()
@@ -302,8 +342,7 @@ def main():
 				bytes = read_all(fd)
 			except (EOFError, OSError):
 				sb()
-				pipe.stdin.close()
-				pipe.wait()
+				synth.close()
 				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
@@ -394,8 +433,7 @@ def saychar(y, x, phonetically=False):
 	char = screen.display[y][x]
 	lchar = char.lower()
 	if phonetically and lchar in PHONETICS:
-		pipe.stdin.write(b's%s\n' % PHONETICS[lchar].encode('utf-8'))
-		pipe.stdin.flush()
+		synth.send('s%s\n' % PHONETICS[lchar])
 	else:
 		say_character(char)
 
@@ -496,28 +534,17 @@ def say(data, force_process_symbols=False):
 		return " %s " % state.config['symbols'][str(ord(m.group(0)))]
 	if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
 		data = state.symbols_re.sub(replace_symbols, data)
-	pipe.stdin.write(b"s" + data.encode('utf-8') + b"\n")
-	pipe.stdin.flush()
+	synth.send("s" + data + "\n")
 
 def silence():
-	pipe.stdin.write(b'x\n')
-	pipe.stdin.flush()
+	synth.send('x\n')
 
 def say_character(ch):
 	key = str(ord(ch))
 	if key in state.config['symbols']:
-		pipe.stdin.write(b's%s\n' % state.config['symbols'][key].encode('utf-8'))
+		synth.send('s%s\n' % state.config['symbols'][key])
 	else:
-		pipe.stdin.write(b'l%s\n' % ch.encode('utf-8'))
-	pipe.stdin.flush()
-
-def set_rate(rate):
-	pipe.stdin.write(b'r%d\n' % rate)
-	pipe.stdin.flush()
-
-def set_volume(volume):
-	pipe.stdin.write(b'v%d\n' % volume)
-	pipe.stdin.flush()
+		synth.send('l%s\n' % ch)
 
 def arrow_up():
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
