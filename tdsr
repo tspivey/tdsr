@@ -234,7 +234,7 @@ class ConfigHandler(KeyHandler):
         except ValueError:
             say("Invalid value")
             return
-        val/=1000
+        val /= 1000
         CURSOR_TIMEOUT = val
         state.config['speech']['cursor_delay'] = str(val)
         state.save_config()
