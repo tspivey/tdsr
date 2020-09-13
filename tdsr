@@ -41,6 +41,9 @@ PHONETICS = {x[0]: x for x in [
 
 class State:
 	def __init__(self):
+		'''
+		__init__
+		'''
 		self.revy = 0
 		self.revx = 0
 		self.delayed_functions = []
@@ -58,10 +61,16 @@ class State:
 		self.delaying_output = False
 
 	def save_config(self):
+		'''
+		save_config
+		'''
 		with open(CONFIG_FILE, 'w') as file_p:
 			self.config.write(file_p)
 
 	def build_symbols_re(self):
+		'''
+		build_symbols_re
+		'''
 		candidates = []
 		for symbol in self.config['symbols']:
 			symbol = int(symbol)
@@ -76,12 +85,18 @@ class KeyHandler:
 	PASSTHROUGH = 1
 	REMOVE = 2
 	def __init__(self, keymap, file_descriptor=None):
+		'''
+		__init__
+		'''
 		self.keymap = keymap
 		self.file_descriptor = file_descriptor
 		self.last_key = None
 		self.last_key_time = 0.0
 
 	def process(self, data):
+		'''
+		process
+		'''
 		key_time = time.time()
 		key_delta = key_time - self.last_key_time
 		self.last_key_time = key_time
@@ -101,10 +116,16 @@ class KeyHandler:
 			return result
 
 	def handle_unknown_key(self, data):
+		'''
+		handle_unknown_key
+		'''
 		os.write(self.file_descriptor, data)
 
 class ConfigHandler(KeyHandler):
 	def __init__(self):
+		'''
+		__init__
+		'''
 		self.keymap = {
 			b'r': self.set_rate,
 			b'v': self.set_volume,
@@ -117,10 +138,16 @@ class ConfigHandler(KeyHandler):
 		super().__init__(self.keymap)
 
 	def set_rate(self):
+		'''
+		set_rate
+		'''
 		say("Rate")
 		state.key_handlers.append(BufferHandler(on_accept=self.set_rate2))
 
 	def set_rate2(self, val):
+		'''
+		set_rate2
+		'''
 		try:
 			val = int(val)
 		except ValueError:
@@ -132,10 +159,16 @@ class ConfigHandler(KeyHandler):
 		say("Confirmed")
 
 	def set_volume(self):
+		'''
+		set_volume
+		'''
 		say("volume")
 		state.key_handlers.append(BufferHandler(on_accept=self.set_volume2))
 
 	def set_volume2(self, val):
+		'''
+		set_volume2
+		'''
 		try:
 			val = int(val)
 		except ValueError:
@@ -147,6 +180,9 @@ class ConfigHandler(KeyHandler):
 		say("Confirmed")
 
 	def set_process_symbols(self):
+		'''
+		set_process_symbols
+		'''
 		current = state.config.getboolean('speech', 'process_symbols', fallback=False)
 		current = not current
 		state.config['speech']['process_symbols'] = str(current)
@@ -154,6 +190,9 @@ class ConfigHandler(KeyHandler):
 		say("process symbols on" if current else "process symbols off")
 
 	def set_echo(self):
+		'''
+		set_echo
+		'''
 		current = state.config.getboolean('speech', 'key_echo', fallback=True)
 		current = not current
 		state.config['speech']['key_echo'] = str(current)
@@ -161,12 +200,18 @@ class ConfigHandler(KeyHandler):
 		say("character echo on" if current else "character echo off")
 
 	def set_word_echo(self):
+		'''
+		set_word_echo
+		'''
 		current = state.config.getboolean('speech', 'word_echo', fallback=True)
 		current = not current
 		state.config['speech']['word_echo'] = str(current)
 		say("word echo " + ("on" if current else "off"))
 
 	def set_cursor_tracking(self):
+		'''
+		set_cursor_tracking
+		'''
 		current = state.config.getboolean('speech', 'cursor_tracking', fallback=True)
 		current = not current
 		state.config['speech']['cursor_tracking'] = str(current)
@@ -174,10 +219,16 @@ class ConfigHandler(KeyHandler):
 		say("cursor tracking on" if current else "cursor tracking off")
 
 	def set_delay(self):
+		'''
+		set_delay
+		'''
 		say("Cursor delay")
 		state.key_handlers.append(BufferHandler(on_accept=self.set_delay2))
 
 	def set_delay2(self, val):
+		'''
+		set_delay2
+		'''
 		global CURSOR_TIMEOUT
 		try:
 			val = int(val)
@@ -191,12 +242,18 @@ class ConfigHandler(KeyHandler):
 		say("Confirmed")
 
 	def handle_unknown_key(self, data):
+		'''
+		handle_unknown_key
+		'''
 		if data == b'\r' or data == b'\n':
 			say("exit")
 			return KeyHandler.REMOVE
 
 class CopyHandler(KeyHandler):
 	def __init__(self):
+		'''
+		__init__
+		'''
 		keymap = {
 			b'l': self.copy_line,
 			b's': self.copy_screen,
@@ -204,6 +261,9 @@ class CopyHandler(KeyHandler):
 		super().__init__(keymap)
 
 	def copy_line(self):
+		'''
+		copy_line
+		'''
 		try:
 			copy_text(state.revy, 0, state.revy, screen.columns-1)
 		except:
@@ -213,6 +273,9 @@ class CopyHandler(KeyHandler):
 		return KeyHandler.REMOVE
 
 	def copy_screen(self):
+		'''
+		copy_screen
+		'''
 		try:
 			copy_text(0, 0, screen.lines - 1, screen.columns - 1)
 		except:
@@ -222,16 +285,25 @@ class CopyHandler(KeyHandler):
 		return KeyHandler.REMOVE
 
 	def handle_unknown_key(self, data):
+		'''
+		handle_unknown_key
+		'''
 		say("unknown key")
 		return KeyHandler.REMOVE
 
 class BufferHandler(KeyHandler):
 	def __init__(self, on_accept=None):
+		'''
+		__init__
+		'''
 		self.on_accept = on_accept
 		self.buffer = ''
 		super().__init__(keymap={})
 
 	def process(self, data):
+		'''
+		process
+		'''
 		if data == b'\r' or data == b'\n':
 			self.on_accept(self.buffer)
 			return KeyHandler.REMOVE
@@ -240,12 +312,18 @@ class BufferHandler(KeyHandler):
 
 class Synth:
 	def __init__(self, speech_server):
+		'''
+		__init__
+		'''
 		self.pipe = None
 		self.speech_server = speech_server
 		self.rate = None
 		self.volume = None
 
 	def start(self):
+		'''
+		start
+		'''
 		self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
 		if self.rate:
 			self.set_rate(self.rate)
@@ -253,6 +331,9 @@ class Synth:
 			self.set_volume(self.volume)
 
 	def send(self, text):
+		'''
+		send
+		'''
 		text = text.encode('utf-8')
 		try:
 			self.pipe.stdin.write(text)
@@ -266,14 +347,23 @@ class Synth:
 				pass # We'll try to restart next time something is sent
 
 	def set_rate(self, rate):
+		'''
+		set_rate
+		'''
 		self.rate = rate
 		self.send('r%d\n' % rate)
 
 	def set_volume(self, volume):
+		'''
+		set_volume
+		'''
 		self.volume = volume
 		self.send('v%d\n' % volume)
 
 	def close(self):
+		'''
+		close
+		'''
 		self.pipe.stdin.close()
 		self.pipe.wait()
 
@@ -281,6 +371,9 @@ state = State()
 speech_buffer = StringIO()
 lastkey = ""
 def main():
+	'''
+	main
+	'''
 	global CURSOR_TIMEOUT, signal_pipe
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
@@ -365,10 +458,16 @@ def main():
 		run_scheduled()
 
 def read_buffer_scheduled():
+	'''
+	read_buffer_scheduled
+	'''
 	state.delaying_output = False
 	speech_buffer()
 
 def read_all(file_descriptor):
+	'''
+	read_all
+	'''
 	bytes = os.read(file_descriptor, 4096)
 	if bytes == b'':
 		raise EOFError
@@ -380,6 +479,9 @@ def read_all(file_descriptor):
 	return bytes
 
 def handle_child(args):
+	'''
+	handle_child
+	'''
 	if args.program:
 			program = shlex.split(" ".join(args.program))
 	else:
@@ -390,6 +492,9 @@ newbytes = StringIO()
 in_escape = False
 escsec = ""
 def process_input(bytes, file_descriptor):
+	'''
+	process_input
+	'''
 	global lastkey
 	lastkey = ""
 	silence()
@@ -401,23 +506,35 @@ def process_input(bytes, file_descriptor):
 	lastkey = bytes.decode('utf-8', 'replace')
 
 def handle_backspace():
+	'''
+	handle_backspace
+	'''
 	cur_x = screen.cursor.x
 	if cur_x > 0:
 		say_character(screen.display[screen.cursor.y][screen.cursor.x - 1])
 	return KeyHandler.PASSTHROUGH
 
 def handle_delete():
+	'''
+	handle_delete
+	'''
 	cur_x = screen.cursor.x
 	say_character(screen.display[screen.cursor.y][screen.cursor.x])
 	return KeyHandler.PASSTHROUGH
 
 def sayline(line_num):
+	'''
+	sayline
+	'''
 	line = screen.display[line_num].strip()
 	if line == u'':
 		line = u'blank'
 	say(line)
 
 def prevline():
+	'''
+	prevline
+	'''
 	state.revy -= 1
 	if state.revy < 0:
 		say("top")
@@ -425,6 +542,9 @@ def prevline():
 	sayline(state.revy)
 
 def nextline():
+	'''
+	nextline
+	'''
 	state.revy += 1
 	if state.revy > screen.lines - 1:
 		say("bottom")
@@ -432,6 +552,9 @@ def nextline():
 	sayline(state.revy)
 
 def prevchar():
+	'''
+	prevchar
+	'''
 	state.revx -= 1
 	if state.revx < 0:
 		say("left")
@@ -439,6 +562,9 @@ def prevchar():
 	saychar(state.revy, state.revx)
 
 def saychar(at_y, at_x, phonetically=False):
+	'''
+	saychar
+	'''
 	char = screen.display[at_y][at_x]
 	lchar = char.lower()
 	if phonetically and lchar in PHONETICS:
@@ -447,6 +573,9 @@ def saychar(at_y, at_x, phonetically=False):
 		say_character(char)
 
 def nextchar():
+	'''
+	nextchar
+	'''
 	state.revx += 1
 	if state.revx > screen.columns - 1:
 		say("right")
@@ -454,33 +583,54 @@ def nextchar():
 	saychar(state.revy, state.revx)
 
 def top_of_screen():
+	'''
+	top_of_screen
+	'''
 	state.revy = 0
 	sayline(state.revy)
 
 def bottom_of_screen():
+	'''
+	bottom_of_screen
+	'''
 	state.revy = screen.lines - 1
 	sayline(state.revy)
 
 def start_of_line():
+	'''
+	start_of_line
+	'''
 	state.revx = 0
 	saychar(state.revy, state.revx)
 
 def end_of_line():
+	'''
+	end_of_line
+	'''
 	state.revx = screen.columns - 1
 	saychar(state.revy, state.revx)
 
 class MyScreen(pyte.Screen):
 
 	def set_margins(self, top=None, bottom=None):
+		'''
+		set_margins
+		'''
 		if top == 0 and bottom is None:
 			top = None
 		super().set_margins(top=top, bottom=bottom)
 
 	def draw(self, text):
+		'''
+		draw
+		'''
 		for char in text:
 			self.draw2(char)
 
 	def draw2(self, text):
+		'''
+		draw2
+		'''
 		global lastkey
 		logger.debug("Drawing %r", text)
 		add_to_buffer = True
@@ -498,37 +648,58 @@ class MyScreen(pyte.Screen):
 			state.last_drawn_y = screen.cursor.y
 
 	def tab(self):
+		'''
+		tab
+		'''
 		if not state.silence:
 			speech_buffer.write(' ')
 		super().tab()
 
 	def linefeed(self):
+		'''
+		linefeed
+		'''
 		speech_buffer()
 		super(MyScreen, self).linefeed()
 
 	def backspace(self):
+		'''
+		backspace
+		'''
 		if self.cursor.x > 0 and speech_buffer.tell() > 0:
 			speech_buffer.seek(speech_buffer.tell() - 1)
 		super(MyScreen, self).backspace()
 
 	def reset_mode(self, *modes, **kwargs):
+		'''
+		reset_mode
+		'''
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
 		super().reset_mode(*modes, **kwargs)
 
 	def set_mode(self, *modes, **kwargs):
+		'''
+		set_mode
+		'''
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
 		super().set_mode(*modes, **kwargs)
 
 	def erase_in_display(self, how=0, private=False):
+		'''
+		erase_in_display
+		'''
 		if how == 3:
 			return
 		super().erase_in_display(how, private=private)
 
 def speech_buffer():
+	'''
+	speech_buffer
+	'''
 	data = speech_buffer.getvalue()
 	speech_buffer.truncate(0)
 	speech_buffer.seek(0)
@@ -538,17 +709,29 @@ def speech_buffer():
 		say(data)
 
 def say(data, force_process_symbols=False):
+	'''
+	say
+	'''
 	data = data.strip()
 	def replace_symbols(msg):
+		'''
+		replace_symbols
+		'''
 		return " %s " % state.config['symbols'][str(ord(msg.group(0)))]
 	if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
 		data = state.symbols_re.sub(replace_symbols, data)
 	synth.send("s" + data + "\n")
 
 def silence():
+	'''
+	silence
+	'''
 	synth.send('x\n')
 
 def say_character(char):
+	'''
+	say_character
+	'''
 	key = str(ord(char))
 	if key in state.config['symbols']:
 		synth.send('s%s\n' % state.config['symbols'][key])
@@ -556,27 +739,45 @@ def say_character(char):
 		synth.send('l%s\n' % char)
 
 def arrow_up():
+	'''
+	arrow_up
+	'''
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
 	return KeyHandler.PASSTHROUGH
 
 def arrow_down():
+	'''
+	arrow_down
+	'''
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
 	return KeyHandler.PASSTHROUGH
 
 def arrow_left():
+	'''
+	arrow_left
+	'''
 	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
 	return KeyHandler.PASSTHROUGH
 
 def arrow_right():
+	'''
+	arrow_right
+	'''
 	schedule(CURSOR_TIMEOUT, (lambda: saychar(screen.cursor.y, screen.cursor.x)), True)
 	return KeyHandler.PASSTHROUGH
 
 def schedule(timeout, func, set_tempsilence=False):
+	'''
+	schedule
+	'''
 	state.delayed_functions.append((time.time() + timeout, func))
 	if set_tempsilence:
 		state.tempsilence = True
 
 def run_scheduled():
+	'''
+	run_scheduled
+	'''
 	if not state.delayed_functions:
 		return
 	to_remove = []
@@ -590,24 +791,39 @@ def run_scheduled():
 		state.delayed_functions.remove(item)
 
 def time_until_next_delayed():
+	'''
+	time_until_next_delayed
+	'''
 	if not state.delayed_functions:
 		return None
 	return max(0, state.delayed_functions[0][0] - time.time())
 
 def config():
+	'''
+	config
+	'''
 	say("config")
 	state.key_handlers.append(ConfigHandler())
 
 def copy_mode():
+	'''
+	copy_mode
+	'''
 	say("copy")
 	state.key_handlers.append(CopyHandler())
 
 def get_char(disp=None):
+	'''
+	get_char
+	'''
 	if disp is None:
 		disp = screen.disp
 	return disp[state.revy][state.revx]
 
 def move_prevchar():
+	'''
+	move_prevchar
+	'''
 	if state.revx == 0:
 		if state.revy == 0:
 			return ''
@@ -617,6 +833,9 @@ def move_prevchar():
 		state.revx -= 1
 
 def move_nextchar():
+	'''
+	move_nextchar
+	'''
 	if state.revx == screen.columns - 1:
 		if state.revy == screen.lines - 1:
 			return ''
@@ -626,6 +845,9 @@ def move_nextchar():
 		state.revx += 1
 
 def prevword():
+	'''
+	prevword
+	'''
 	if state.revx == 0:
 		say("left")
 		sayword()
@@ -643,6 +865,9 @@ def prevword():
 	sayword()
 
 def sayword(spell=False):
+	'''
+	sayword
+	'''
 	word = ""
 	revx, revy = state.revx, state.revy
 	disp = screen.display
@@ -663,6 +888,9 @@ def sayword(spell=False):
 	state.revx, state.revy = revx, revy
 
 def nextword():
+	'''
+	nextword
+	'''
 	revx, revy = state.revx, state.revy
 	move = screen.columns - 1
 	disp = screen.display
@@ -680,10 +908,16 @@ def nextword():
 	sayword()
 
 def handle_silence():
+	'''
+	handle_silence
+	'''
 	state.silence = not state.silence
 	say("quiet on" if state.silence else "quiet off")
 
 def handle_clipboard():
+	'''
+	handle_clipboard
+	'''
 	if state.copy_x is None:
 		state.copy_x = state.revx
 		state.copy_y = state.revy
@@ -699,6 +933,9 @@ def handle_clipboard():
 	state.copy_x = None
 
 def copy_text(start_y, start_x, end_y, end_x):
+	'''
+	copy_text
+	'''
 	if start_x > end_x:
 		start_x, end_x = end_x, start_x
 	if start_y > end_y:
@@ -721,6 +958,9 @@ def copy_text(start_y, start_x, end_y, end_x):
 	copy_to_clip(buf)
 
 def copy_to_clip(data):
+	'''
+	copy_to_clip
+	'''
 	data = data.encode('utf-8')
 	if platform.system() == 'Darwin':
 		proc = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
@@ -732,17 +972,26 @@ def copy_to_clip(data):
 		proc.stdin.close()
 
 def has_more(file_descriptor):
+	'''
+	has_more
+	'''
 	rlist, wlist, elist = select.select([file_descriptor], [], [], 0)
 	if file_descriptor in rlist:
 		return True
 	return False
 
 def get_terminal_size(file_descriptor):
+	'''
+	get_terminal_size
+	'''
 	struc = struct.pack('HHHH', 0, 0, 0, 0)
 	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ, struc))
 	return rows, cols
 
 def resize_terminal(file_descriptor):
+	'''
+	resize_terminal
+	'''
 	struc = struct.pack('HHHH', 0, 0, 0, 0)
 	struc = fcntl.ioctl(0, termios.TIOCGWINSZ, struc)
 	fcntl.ioctl(file_descriptor, termios.TIOCSWINSZ, struc)
@@ -750,9 +999,15 @@ def resize_terminal(file_descriptor):
 	return rows, cols
 
 def handle_sigwinch(*args):
+	'''
+	handle_sigwinch
+	'''
 	os.write(signal_pipe[1], b'w')
 
 def handle_space(*args):
+	'''
+	handle_space
+	'''
 	if state.config.getboolean('speech', 'word_echo'):
 		prevword()
 	return KeyHandler.PASSTHROUGH
