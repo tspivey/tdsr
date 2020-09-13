@@ -50,7 +50,7 @@ class State:
 		self.config = configparser.ConfigParser()
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True, 'word_echo': True}
 		self.config['symbols'] = {}
-		self.symbols_Re = None
+		self.symbols_re = None
 		self.copy_x = None
 		self.copy_y = None
 		self.last_drawn_x = 0
@@ -58,8 +58,8 @@ class State:
 		self.delaying_output = False
 
 	def save_config(self):
-		with open(CONFIG_FILE, 'w') as fp:
-			self.config.write(fp)
+		with open(CONFIG_FILE, 'w') as file_p:
+			self.config.write(file_p)
 
 	def build_symbols_re(self):
 		candidates = []
@@ -75,9 +75,9 @@ class State:
 class KeyHandler:
 	PASSTHROUGH = 1
 	REMOVE = 2
-	def __init__(self, keymap, fd=None):
+	def __init__(self, keymap, file_descriptor=None):
 		self.keymap = keymap
-		self.fd = fd
+		self.file_descriptor = file_descriptor
 		self.last_key = None
 		self.last_key_time = 0.0
 
@@ -96,12 +96,12 @@ class KeyHandler:
 		else:
 			result = self.keymap[data]()
 			if result == KeyHandler.PASSTHROUGH:
-				os.write(self.fd, data)
+				os.write(self.file_descriptor, data)
 			self.last_key = data
 			return result
 
 	def handle_unknown_key(self, data):
-		os.write(self.fd, data)
+		os.write(self.file_descriptor, data)
 
 class ConfigHandler(KeyHandler):
 	def __init__(self):
@@ -298,8 +298,8 @@ def main():
 	if args.debug:
 		logger.setLevel(logging.DEBUG)
 		formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-		fh = logging.FileHandler('tdsr.log')
-		fh.setFormatter(formatter)
+		f_handler = logging.FileHandler('tdsr.log')
+		f_handler.setFormatter(formatter)
 		logger.addHandler(fh)
 		logger.debug("TDSR started")
 	rows, cols = get_terminal_size(0)
@@ -317,7 +317,7 @@ def main():
 		synth.set_volume(int(state.config['speech']['volume']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
-	pid, fd = os.forkpty()
+	pid, file_descriptor = os.forkpty()
 	if pid == 0:
 		handle_child(args)
 	screen = MyScreen(cols, rows)
@@ -325,38 +325,38 @@ def main():
 	stream.attach(screen)
 	screen.define_charset('B', '(')
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
-	default_key_handler = KeyHandler(keymap, fd)
+	default_key_handler = KeyHandler(keymap, file_descriptor)
 	state.key_handlers.append(default_key_handler)
-	termios.tcsetattr(fd, termios.TCSADRAIN, old)
-	resize_terminal(fd)
+	termios.tcsetattr(file_descriptor, termios.TCSADRAIN, old)
+	resize_terminal(file_descriptor)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
 	say("tdsr, presented by Lighthouse of San Francisco")
 	while True:
-		r, w, e = select.select([sys.stdin, fd, signal_pipe[0]], [], [], time_until_next_delayed())
-		if signal_pipe[0] in r:
+		rlist, wlist, xlist = select.select([sys.stdin, file_descriptor, signal_pipe[0]], [], [], time_until_next_delayed())
+		if signal_pipe[0] in rlist:
 			os.read(signal_pipe[0], 1)
 			old_x, old_y = screen.cursor.x, screen.cursor.y
-			rows, cols = resize_terminal(fd)
+			rows, cols = resize_terminal(file_descriptor)
 			screen.resize(rows, cols)
 			state.revx = min(state.revx, cols - 1)
 			state.revy = min(state.revy, rows - 1)
 			screen.cursor.x = min(old_x, cols - 1)
 			screen.cursor.y = min(old_y, rows - 1)
-		if sys.stdin in r:
+		if sys.stdin in rlist:
 			bytes = os.read(0, 4096)
-			process_input(bytes, fd)
-		if fd in r:
+			process_input(bytes, file_descriptor)
+		if file_descriptor in rlist:
 			try:
-				bytes = read_all(fd)
+				bytes = read_all(file_descriptor)
 			except (EOFError, OSError):
-				sb()
+				speech_buffer()
 				synth.close()
 				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
-			x, y = screen.cursor.x, screen.cursor.y
+			old_x, old_y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
-			if state.config.getboolean('speech', 'cursor_tracking') and (screen.cursor.x != x or screen.cursor.y != y):
+			if state.config.getboolean('speech', 'cursor_tracking') and (screen.cursor.x != old_x or screen.cursor.y != old_y):
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
 			if not state.silence and not state.tempsilence:
 				if speech_buffer.tell() > 0 and not state.delaying_output:
@@ -366,14 +366,14 @@ def main():
 
 def read_buffer_scheduled():
 	state.delaying_output = False
-	sb()
+	speech_buffer()
 
-def read_all(fd):
-	bytes = os.read(fd, 4096)
+def read_all(file_descriptor):
+	bytes = os.read(file_descriptor, 4096)
 	if bytes == b'':
 		raise EOFError
-	while has_more(fd):
-		data = os.read(fd, 4096)
+	while has_more(file_descriptor):
+		data = os.read(file_descriptor, 4096)
 		if data == b'':
 			raise EOFError
 		bytes += data
@@ -389,7 +389,7 @@ def handle_child(args):
 newbytes = StringIO()
 in_escape = False
 escsec = ""
-def process_input(bytes, fd):
+def process_input(bytes, file_descriptor):
 	global lastkey
 	lastkey = ""
 	silence()
@@ -401,18 +401,16 @@ def process_input(bytes, fd):
 	lastkey = bytes.decode('utf-8', 'replace')
 
 def handle_backspace():
-	x = screen.cursor.x
-	if x > 0:
+	if screen.cursor.x > 0:
 		say_character(screen.display[screen.cursor.y][screen.cursor.x - 1])
 	return KeyHandler.PASSTHROUGH
 
 def handle_delete():
-	x = screen.cursor.x
 	say_character(screen.display[screen.cursor.y][screen.cursor.x])
 	return KeyHandler.PASSTHROUGH
 
-def sayline(y):
-	line = screen.display[y].strip()
+def sayline(line_num):
+	line = screen.display[line_num].strip()
 	if line == u'':
 		line = u'blank'
 	say(line)
@@ -438,8 +436,8 @@ def prevchar():
 		state.revx = 0
 	saychar(state.revy, state.revx)
 
-def saychar(y, x, phonetically=False):
-	char = screen.display[y][x]
+def saychar(at_y, at_x, phonetically=False):
+	char = screen.display[at_y][at_x]
 	lchar = char.lower()
 	if phonetically and lchar in PHONETICS:
 		synth.send('s%s\n' % PHONETICS[lchar])
@@ -453,19 +451,19 @@ def nextchar():
 		state.revx = screen.columns - 1
 	saychar(state.revy, state.revx)
 
-def topOfScreen():
+def top_of_screen():
 	state.revy = 0
 	sayline(state.revy)
 
-def bottomOfScreen():
+def bottom_of_screen():
 	state.revy = screen.lines - 1
 	sayline(state.revy)
 
-def startOfLine():
+def start_of_line():
 	state.revx = 0
 	saychar(state.revy, state.revx)
 
-def endOfLine():
+def end_of_line():
 	state.revx = screen.columns - 1
 	saychar(state.revy, state.revx)
 
@@ -477,8 +475,8 @@ class MyScreen(pyte.Screen):
 		super().set_margins(top=top, bottom=bottom)
 
 	def draw(self, text):
-		for c in text:
-			self.draw2(c)
+		for char in text:
+			self.draw2(char)
 
 	def draw2(self, text):
 		global lastkey
@@ -503,7 +501,7 @@ class MyScreen(pyte.Screen):
 		super().tab()
 
 	def linefeed(self):
-		sb()
+		speech_buffer()
 		super(MyScreen, self).linefeed()
 
 	def backspace(self):
@@ -528,7 +526,7 @@ class MyScreen(pyte.Screen):
 			return
 		super().erase_in_display(how, private=private)
 
-def sb():
+def speech_buffer():
 	data = speech_buffer.getvalue()
 	speech_buffer.truncate(0)
 	speech_buffer.seek(0)
@@ -539,8 +537,8 @@ def sb():
 
 def say(data, force_process_symbols=False):
 	data = data.strip()
-	def replace_symbols(m):
-		return " %s " % state.config['symbols'][str(ord(m.group(0)))]
+	def replace_symbols(msg):
+		return " %s " % state.config['symbols'][str(ord(msg.group(0)))]
 	if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
 		data = state.symbols_re.sub(replace_symbols, data)
 	synth.send("s" + data + "\n")
@@ -548,12 +546,12 @@ def say(data, force_process_symbols=False):
 def silence():
 	synth.send('x\n')
 
-def say_character(ch):
-	key = str(ord(ch))
+def say_character(char):
+	key = str(ord(char))
 	if key in state.config['symbols']:
 		synth.send('s%s\n' % state.config['symbols'][key])
 	else:
-		synth.send('l%s\n' % ch)
+		synth.send('l%s\n' % char)
 
 def arrow_up():
 	schedule(CURSOR_TIMEOUT, (lambda: sayline(screen.cursor.y)), True)
@@ -581,13 +579,13 @@ def run_scheduled():
 		return
 	to_remove = []
 	curtime = time.time()
-	for i in state.delayed_functions:
-		t, f = i
-		if curtime >= t:
-			f()
-			to_remove.append(i)
-	for i in to_remove:
-		state.delayed_functions.remove(i)
+	for item in state.delayed_functions:
+		time, func = item
+		if curtime >= time:
+			func()
+			to_remove.append(item)
+	for item in to_remove:
+		state.delayed_functions.remove(item)
 
 def time_until_next_delayed():
 	if not state.delayed_functions:
@@ -602,10 +600,10 @@ def copy_mode():
 	say("copy")
 	state.key_handlers.append(CopyHandler())
 
-def get_char(d=None):
-	if d is None:
-		d = screen.display
-	return d[state.revy][state.revx]
+def get_char(disp=None):
+	if disp is None:
+		disp = screen.disp
+	return disp[state.revy][state.revx]
 
 def move_prevchar():
 	if state.revx == 0:
@@ -630,31 +628,31 @@ def prevword():
 		say("left")
 		sayword()
 		return
-	d = screen.display
+	disp = screen.display
 	#Move over any existing word we might be in the middle of
-	while state.revx > 0 and get_char(d) != ' ':
+	while state.revx > 0 and get_char(disp) != ' ':
 		move_prevchar()
 	#Skip whitespace
-	while state.revx > 0 and get_char(d) == ' ':
+	while state.revx > 0 and get_char(disp) == ' ':
 		move_prevchar()
 	#Move to the beginning of the word we're now on
-	while state.revx > 0 and get_char(d) != ' ' and screen.display[state.revy][state.revx - 1] != ' ':
+	while state.revx > 0 and get_char(disp) != ' ' and screen.display[state.revy][state.revx - 1] != ' ':
 		move_prevchar()
 	sayword()
 
 def sayword(spell=False):
 	word = ""
 	revx, revy = state.revx, state.revy
-	d = screen.display
-	while state.revx > 0 and get_char(d) != ' ' and d[state.revy][state.revx - 1] != ' ':
+	disp = screen.display
+	while state.revx > 0 and get_char(disp) != ' ' and d[state.revy][state.revx - 1] != ' ':
 		move_prevchar()
-	if state.revx == 0 and get_char(d) == ' ':
+	if state.revx == 0 and get_char(disp) == ' ':
 		say("space")
 		return
 	while state.revx < screen.columns - 1:
-		word += get_char(d)
+		word += get_char(disp)
 		move_nextchar()
-		if get_char(d) == ' ':
+		if get_char(disp) == ' ':
 			break
 	if spell:
 		say(' '.join(word), force_process_symbols=True)
@@ -664,15 +662,15 @@ def sayword(spell=False):
 
 def nextword():
 	revx, revy = state.revx, state.revy
-	m = screen.columns - 1
-	d = screen.display
+	move = screen.columns - 1
+	disp = screen.display
 	#Move over any existing word we might be in the middle of
-	while state.revx < m and get_char(d) != ' ':
+	while state.revx < move and get_char(disp) != ' ':
 		move_nextchar()
 	#Skip whitespace
-	while state.revx < m and get_char(d) == ' ':
+	while state.revx < move and get_char(d) == ' ':
 		move_nextchar()
-	if state.revx == m and get_char(d) == ' ':
+	if state.revx == move and get_char(d) == ' ':
 		say("right")
 		state.revx = revx
 		sayword()
@@ -708,8 +706,8 @@ def copy_text(start_y, start_x, end_y, end_x):
 	display = screen.display
 	buf = []
 	start = start_x
-	for y in range(lines):
-		if lines > 1 and y < lines - 1:
+	for y_pos in range(lines):
+		if lines > 1 and y_pos < lines - 1:
 			end = screen.columns - 1
 		else:
 			end = end_x
@@ -731,22 +729,22 @@ def copy_to_clip(data):
 		proc.stdin.write(data)
 		proc.stdin.close()
 
-def has_more(fd):
-	r, w, e = select.select([fd], [], [], 0)
-	if fd in r:
+def has_more(file_descriptor):
+	rlist, wlist, elist = select.select([file_descriptor], [], [], 0)
+	if file_descriptor in rlist:
 		return True
 	return False
 
-def get_terminal_size(fd):
-	s = struct.pack('HHHH', 0, 0, 0, 0)
-	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(fd, termios.TIOCGWINSZ, s))
+def get_terminal_size(file_descriptor):
+	struc = struct.pack('HHHH', 0, 0, 0, 0)
+	rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ, struc))
 	return rows, cols
 
-def resize_terminal(fd):
-	s = struct.pack('HHHH', 0, 0, 0, 0)
-	s = fcntl.ioctl(0, termios.TIOCGWINSZ, s)
-	fcntl.ioctl(fd, termios.TIOCSWINSZ, s)
-	rows, cols, _, _ = struct.unpack('hhhh', s)
+def resize_terminal(file_descriptor):
+	struc = struct.pack('HHHH', 0, 0, 0, 0)
+	struc = fcntl.ioctl(0, termios.TIOCGWINSZ, struc)
+	fcntl.ioctl(file_descriptor, termios.TIOCSWINSZ, struc)
+	rows, cols, _, _ = struct.unpack('hhhh', struc)
 	return rows, cols
 
 def handle_sigwinch(*args):
@@ -770,12 +768,12 @@ keymap = {
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b,\x1b,': lambda: saychar(state.revy, state.revx, phonetically=True),
 	b'\x1b.': nextchar,
-	b'\x1bU': topOfScreen,
-	b'\x1bO': bottomOfScreen,
-	b'\x1bM': startOfLine,
-	b'\x1b>': endOfLine,
+	b'\x1bU': top_of_screen,
+	b'\x1bO': bottom_of_screen,
+	b'\x1bM': start_of_line,
+	b'\x1b>': end_of_line,
 	# For the Hungarian keyboard layout
-	b'\x1b:': endOfLine,
+	b'\x1b:': end_of_line,
 	b'\x1bc': config,
 	b'\x1bq': handle_silence,
 	b'\x1br': handle_clipboard,
