@@ -50,7 +50,12 @@ class State:
         self.tempsilence = False
         self.key_handlers = []
         self.config = configparser.ConfigParser()
-        self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True, 'word_echo': True}
+        self.config['speech'] = {
+            'process_symbols': 'false',
+            'key_echo': True,
+            'cursor_tracking': True,
+            'word_echo': True
+        }
         self.config['symbols'] = {}
         self.symbols_re = None
         self.copy_x = None
@@ -375,7 +380,10 @@ def main():
     '''
     global CURSOR_TIMEOUT, signal_pipe
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
+    parser.add_argument('-s',
+            '--speech-server',
+            action='store',
+            help='speech server command to run')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('program', action='store', nargs='*')
     args = parser.parse_args()
@@ -425,7 +433,11 @@ def main():
     signal.signal(signal.SIGWINCH, handle_sigwinch)
     say("tdsr, presented by Lighthouse of San Francisco")
     while True:
-        rlist, wlist, xlist = select.select([sys.stdin, file_descriptor, signal_pipe[0]], [], [], time_until_next_delayed())
+        rlist, wlist, xlist = select.select(
+                [sys.stdin, file_descriptor, signal_pipe[0]],
+                [],
+                [],
+                time_until_next_delayed())
         if signal_pipe[0] in rlist:
             os.read(signal_pipe[0], 1)
             old_x, old_y = screen.cursor.x, screen.cursor.y
@@ -448,7 +460,8 @@ def main():
             decoded_bytes = decoder.decode(bytes)
             old_x, old_y = screen.cursor.x, screen.cursor.y
             stream.feed(decoded_bytes)
-            if state.config.getboolean('speech', 'cursor_tracking') and (screen.cursor.x != old_x or screen.cursor.y != old_y):
+            if state.config.getboolean('speech', 'cursor_tracking') and (
+                    screen.cursor.x != old_x or screen.cursor.y != old_y):
                 state.revx, state.revy = screen.cursor.x, screen.cursor.y
             if not state.silence and not state.tempsilence:
                 if speech_buffer.tell() > 0 and not state.delaying_output:
@@ -717,7 +730,9 @@ def say(data, force_process_symbols=False):
         replace_symbols
         '''
         return " %s " % state.config['symbols'][str(ord(msg.group(0)))]
-    if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
+    if state.symbols_re is not None and \
+            (force_process_symbols or \
+            state.config.getboolean('speech', 'process_symbols', fallback=False)):
         data = state.symbols_re.sub(replace_symbols, data)
     synth.send("s" + data + "\n")
 
@@ -859,7 +874,8 @@ def prevword():
     while state.revx > 0 and get_char(disp) == ' ':
         move_prevchar()
     #Move to the beginning of the word we're now on
-    while state.revx > 0 and get_char(disp) != ' ' and screen.display[state.revy][state.revx - 1] != ' ':
+    while state.revx > 0 and get_char(disp) != ' ' and \
+            screen.display[state.revy][state.revx - 1] != ' ':
         move_prevchar()
     sayword()
 
@@ -984,7 +1000,10 @@ def get_terminal_size(file_descriptor):
     get_terminal_size
     '''
     struc = struct.pack('HHHH', 0, 0, 0, 0)
-    rows, cols, _, _ = struct.unpack('HHHH', fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ, struc))
+    rows, cols, _, _ = struct.unpack(
+            'HHHH',
+            fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ,
+            struc))
     return rows, cols
 
 def resize_terminal(file_descriptor):
