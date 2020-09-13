@@ -401,11 +401,13 @@ def process_input(bytes, file_descriptor):
 	lastkey = bytes.decode('utf-8', 'replace')
 
 def handle_backspace():
-	if screen.cursor.x > 0:
+	cur_x = screen.cursor.x
+	if cur_x > 0:
 		say_character(screen.display[screen.cursor.y][screen.cursor.x - 1])
 	return KeyHandler.PASSTHROUGH
 
 def handle_delete():
+	cur_x = screen.cursor.x
 	say_character(screen.display[screen.cursor.y][screen.cursor.x])
 	return KeyHandler.PASSTHROUGH
 
