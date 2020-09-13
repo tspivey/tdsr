@@ -407,8 +407,8 @@ def main():
     synth = Synth(speech_server)
     synth.start()
     if os.path.exists(DEFAULT_CONFIG) and not os.path.exists(CONFIG_FILE):
-            state.config.read(DEFAULT_CONFIG)
-            state.save_config()
+        state.config.read(DEFAULT_CONFIG)
+        state.save_config()
     state.config.read(CONFIG_FILE)
     state.symbols_re = state.build_symbols_re()
     if 'rate' in state.config['speech']:
@@ -495,7 +495,7 @@ def handle_child(args):
     handle_child
     '''
     if args.program:
-            program = shlex.split(" ".join(args.program))
+        program = shlex.split(" ".join(args.program))
     else:
         program = [os.environ["SHELL"]]
     os.execv(program[0], program)
