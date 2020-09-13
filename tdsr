@@ -381,9 +381,9 @@ def main():
     global CURSOR_TIMEOUT, signal_pipe
     parser = argparse.ArgumentParser()
     parser.add_argument('-s',
-            '--speech-server',
-            action='store',
-            help='speech server command to run')
+                        '--speech-server',
+                        action='store',
+                        help='speech server command to run')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('program', action='store', nargs='*')
     args = parser.parse_args()
@@ -434,10 +434,10 @@ def main():
     say("tdsr, presented by Lighthouse of San Francisco")
     while True:
         rlist, wlist, xlist = select.select(
-                [sys.stdin, file_descriptor, signal_pipe[0]],
-                [],
-                [],
-                time_until_next_delayed())
+            [sys.stdin, file_descriptor, signal_pipe[0]],
+            [],
+            [],
+            time_until_next_delayed())
         if signal_pipe[0] in rlist:
             os.read(signal_pipe[0], 1)
             old_x, old_y = screen.cursor.x, screen.cursor.y
@@ -1001,9 +1001,8 @@ def get_terminal_size(file_descriptor):
     '''
     struc = struct.pack('HHHH', 0, 0, 0, 0)
     rows, cols, _, _ = struct.unpack(
-            'HHHH',
-            fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ,
-            struc))
+        'HHHH',
+        fcntl.ioctl(file_descriptor, termios.TIOCGWINSZ, struc))
     return rows, cols
 
 def resize_terminal(file_descriptor):
