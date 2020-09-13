@@ -32,12 +32,11 @@ CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 REPEAT_KEY_TIMEOUT = 0.5
 PHONETICS = {x[0]: x for x in [
-		'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
-		'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
-		'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra',
-		'tango', 'uniform', 'victor', 'wiskey', 'x ray', 'yankee',
-		'zulu']
-}
+    'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
+    'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
+    'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra',
+    'tango', 'uniform', 'victor', 'wiskey', 'x ray', 'yankee',
+    'zulu']}
 
 class State:
 	def __init__(self):
@@ -127,13 +126,13 @@ class ConfigHandler(KeyHandler):
 		__init__
 		'''
 		self.keymap = {
-			b'r': self.set_rate,
-			b'v': self.set_volume,
-			b'p': self.set_process_symbols,
-			b'd': self.set_delay,
-			b'e': self.set_echo,
-			b'w': self.set_word_echo,
-			b'c': self.set_cursor_tracking,
+                    b'r': self.set_rate,
+                    b'v': self.set_volume,
+                    b'p': self.set_process_symbols,
+                    b'd': self.set_delay,
+                    b'e': self.set_echo,
+                    b'w': self.set_word_echo,
+                    b'c': self.set_cursor_tracking,
 		}
 		super().__init__(self.keymap)
 
@@ -255,8 +254,8 @@ class CopyHandler(KeyHandler):
 		__init__
 		'''
 		keymap = {
-			b'l': self.copy_line,
-			b's': self.copy_screen,
+                    b'l': self.copy_line,
+                    b's': self.copy_screen,
 		}
 		super().__init__(keymap)
 
@@ -1013,41 +1012,41 @@ def handle_space(*args):
 	return KeyHandler.PASSTHROUGH
 
 keymap = {
-	b' ': handle_space,
-	b'\x1bi': lambda: sayline(state.revy),
-	b'\x1bu': prevline,
-	b'\x1bo': nextline,
-	b'\x1bj': prevword,
-	b'\x1bk': sayword,
-	b'\x1bk\x1bk': lambda: sayword(spell=True),
-	b'\x1bl': nextword,
-	b'\x1bm': prevchar,
-	b'\x1b,': lambda: saychar(state.revy, state.revx),
-	b'\x1b,\x1b,': lambda: saychar(state.revy, state.revx, phonetically=True),
-	b'\x1b.': nextchar,
-	b'\x1bU': top_of_screen,
-	b'\x1bO': bottom_of_screen,
-	b'\x1bM': start_of_line,
-	b'\x1b>': end_of_line,
-	# For the Hungarian keyboard layout
-	b'\x1b:': end_of_line,
-	b'\x1bc': config,
-	b'\x1bq': handle_silence,
-	b'\x1br': handle_clipboard,
-	b'\x1bv': copy_mode,
-	b'\x1bx': silence,
-	b'\x08': handle_backspace,
-	b'\x7f': handle_backspace,
-	b'\x1b[3~': handle_delete,
-	b'\x1b[A': arrow_up,
-	b'\x1b[B': arrow_down,
-	b'\x1b[C': arrow_right,
-	b'\x1b[D': arrow_left,
-	#
-	b'\x1bOA': arrow_up,
-	b'\x1bOB': arrow_down,
-	b'\x1bOC': arrow_right,
-	b'\x1bOD': arrow_left,
+    b' ': handle_space,
+    b'\x1bi': lambda: sayline(state.revy),
+    b'\x1bu': prevline,
+    b'\x1bo': nextline,
+    b'\x1bj': prevword,
+    b'\x1bk': sayword,
+    b'\x1bk\x1bk': lambda: sayword(spell=True),
+    b'\x1bl': nextword,
+    b'\x1bm': prevchar,
+    b'\x1b,': lambda: saychar(state.revy, state.revx),
+    b'\x1b,\x1b,': lambda: saychar(state.revy, state.revx, phonetically=True),
+    b'\x1b.': nextchar,
+    b'\x1bU': top_of_screen,
+    b'\x1bO': bottom_of_screen,
+    b'\x1bM': start_of_line,
+    b'\x1b>': end_of_line,
+    # For the Hungarian keyboard layout
+    b'\x1b:': end_of_line,
+    b'\x1bc': config,
+    b'\x1bq': handle_silence,
+    b'\x1br': handle_clipboard,
+    b'\x1bv': copy_mode,
+    b'\x1bx': silence,
+    b'\x08': handle_backspace,
+    b'\x7f': handle_backspace,
+    b'\x1b[3~': handle_delete,
+    b'\x1b[A': arrow_up,
+    b'\x1b[B': arrow_down,
+    b'\x1b[C': arrow_right,
+    b'\x1b[D': arrow_left,
+    #
+    b'\x1bOA': arrow_up,
+    b'\x1bOB': arrow_down,
+    b'\x1bOC': arrow_right,
+    b'\x1bOD': arrow_left,
 }
 
 if __name__ == '__main__':
