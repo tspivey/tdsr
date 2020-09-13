@@ -10,6 +10,7 @@ import fcntl
 import struct
 import termios
 import codecs
+import pyte
 from io import StringIO
 import subprocess
 import time
@@ -20,9 +21,6 @@ import shlex
 import logging
 import platform
 import signal
-
-import pyte
-
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
