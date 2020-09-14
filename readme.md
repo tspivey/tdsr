@@ -51,6 +51,9 @@ Once in the config menu, you can use:
 * v - set volume (value between 0 and 100).
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
+* e - toggle character echo
+* w - toggle word echo
+* c - toggle cursor following
 * Enter - exit, saving the configuration.
 
 ## Symbols

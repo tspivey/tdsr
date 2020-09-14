@@ -46,7 +46,7 @@ class State:
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
-		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True}
+		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True, 'word_echo': True}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
@@ -109,6 +109,7 @@ class ConfigHandler(KeyHandler):
 			b'p': self.set_process_symbols,
 			b'd': self.set_delay,
 			b'e': self.set_echo,
+			b'w': self.set_word_echo,
 			b'c': self.set_cursor_tracking,
 		}
 		super().__init__(self.keymap)
@@ -156,6 +157,12 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['key_echo'] = str(current)
 		state.save_config()
 		say("character echo on" if current else "character echo off")
+
+	def set_word_echo(self):
+		current = state.config.getboolean('speech', 'word_echo', fallback=True)
+		current = not current
+		state.config['speech']['word_echo'] = str(current)
+		say("word echo " + ("on" if current else "off"))
 
 	def set_cursor_tracking(self):
 		current = state.config.getboolean('speech', 'cursor_tracking', fallback=True)
@@ -743,7 +750,13 @@ def resize_terminal(fd):
 def handle_sigwinch(*args):
 	os.write(signal_pipe[1], b'w')
 
+def handle_space(*args):
+	if state.config.getboolean('speech', 'word_echo'):
+		prevword()
+	return KeyHandler.PASSTHROUGH
+
 keymap = {
+	b' ': handle_space,
 	b'\x1bi': lambda: sayline(state.revy),
 	b'\x1bu': prevline,
 	b'\x1bo': nextline,
