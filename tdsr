@@ -46,7 +46,8 @@ class State:
 		self.tempsilence = False
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
-		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True}
+		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
+		"line_pause": True}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
@@ -110,6 +111,7 @@ class ConfigHandler(KeyHandler):
 			b'd': self.set_delay,
 			b'e': self.set_echo,
 			b'c': self.set_cursor_tracking,
+			b'l': self.set_line_pause,
 		}
 		super().__init__(self.keymap)
 
@@ -163,6 +165,13 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['cursor_tracking'] = str(current)
 		state.save_config()
 		say("cursor tracking on" if current else "cursor tracking off")
+
+	def set_line_pause(self):
+		current = state.config.getboolean('speech', 'line_pause')
+		current = not current
+		state.config['speech']['line_pause'] = str(current)
+		state.save_config()
+		say("line pause on" if current else "line pause off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -351,7 +360,7 @@ def main():
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
 			if not state.silence and not state.tempsilence:
 				if speech_buffer.tell() > 0 and not state.delaying_output:
-					schedule(0.001, read_buffer_scheduled)
+					schedule(0.005, read_buffer_scheduled)
 			os.write(1, bytes)
 		run_scheduled()
 
@@ -494,7 +503,10 @@ class MyScreen(pyte.Screen):
 		super().tab()
 
 	def linefeed(self):
-		sb()
+		if state.config.getboolean('speech', 'line_pause'):
+			sb()
+		else:
+			speech_buffer.write(' ')
 		super(MyScreen, self).linefeed()
 
 	def backspace(self):

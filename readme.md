@@ -51,6 +51,7 @@ Once in the config menu, you can use:
 * v - set volume (value between 0 and 100).
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
+* l - Toggle pausing at newlines.
 * Enter - exit, saving the configuration.
 
 ## Symbols
