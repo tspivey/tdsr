@@ -11,7 +11,7 @@ import struct
 import termios
 import codecs
 import pyte
-from io import StringIO
+from io import StringIO, SEEK_END
 import subprocess
 import time
 import configparser
@@ -506,6 +506,7 @@ class MyScreen(pyte.Screen):
 		if state.config.getboolean('speech', 'line_pause'):
 			sb()
 		else:
+			speech_buffer.seek(0, SEEK_END)
 			speech_buffer.write(' ')
 		super(MyScreen, self).linefeed()
 
