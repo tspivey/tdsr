@@ -11,6 +11,7 @@ import struct
 import termios
 import codecs
 import pyte
+from wcwidth import wcwidth
 from io import StringIO, SEEK_END
 import subprocess
 import time
@@ -403,16 +404,16 @@ def process_input(bytes, fd):
 def handle_backspace():
 	x = screen.cursor.x
 	if x > 0:
-		say_character(screen.display[screen.cursor.y][screen.cursor.x - 1])
+		say_character(screen.buffer[screen.cursor.y][screen.cursor.x - 1].data)
 	return KeyHandler.PASSTHROUGH
 
 def handle_delete():
 	x = screen.cursor.x
-	say_character(screen.display[screen.cursor.y][screen.cursor.x])
+	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
 
 def sayline(y):
-	line = screen.display[y].strip()
+	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
 	if line == u'':
 		line = u'blank'
 	say(line)
@@ -436,10 +437,11 @@ def prevchar():
 	if state.revx < 0:
 		say("left")
 		state.revx = 0
+	skip_to_previous_char()
 	saychar(state.revy, state.revx)
 
 def saychar(y, x, phonetically=False):
-	char = screen.display[y][x]
+	char = screen.buffer[y][x].data
 	lchar = char.lower()
 	if phonetically and lchar in PHONETICS:
 		synth.send('s%s\n' % PHONETICS[lchar])
@@ -447,11 +449,16 @@ def saychar(y, x, phonetically=False):
 		say_character(char)
 
 def nextchar():
-	state.revx += 1
+	state.revx += wcwidth(screen.buffer[state.revy][state.revx].data)
 	if state.revx > screen.columns - 1:
 		say("right")
 		state.revx = screen.columns - 1
+		skip_to_previous_char()
 	saychar(state.revy, state.revx)
+
+def skip_to_previous_char():
+	while screen.buffer[state.revy][state.revx].data == '':
+		state.revx -= 1
 
 def topOfScreen():
 	state.revy = 0
@@ -553,6 +560,8 @@ def silence():
 	synth.send('x\n')
 
 def say_character(ch):
+	if ch == '':
+		ch = ' '
 	key = str(ord(ch))
 	if key in state.config['symbols']:
 		synth.send('s%s\n' % state.config['symbols'][key])
@@ -606,10 +615,8 @@ def copy_mode():
 	say("copy")
 	state.key_handlers.append(CopyHandler())
 
-def get_char(d=None):
-	if d is None:
-		d = screen.display
-	return d[state.revy][state.revx]
+def get_char():
+	return screen.buffer[state.revy][state.revx].data
 
 def move_prevchar():
 	if state.revx == 0:
@@ -634,31 +641,30 @@ def prevword():
 		say("left")
 		sayword()
 		return
-	d = screen.display
 	#Move over any existing word we might be in the middle of
-	while state.revx > 0 and get_char(d) != ' ':
+	while state.revx > 0 and get_char() != ' ':
 		move_prevchar()
 	#Skip whitespace
-	while state.revx > 0 and get_char(d) == ' ':
+	while state.revx > 0 and get_char() == ' ':
 		move_prevchar()
 	#Move to the beginning of the word we're now on
-	while state.revx > 0 and get_char(d) != ' ' and screen.display[state.revy][state.revx - 1] != ' ':
+	while state.revx > 0 and get_char() != ' ' and screen.buffer[state.revy][state.revx - 1].data != ' ':
 		move_prevchar()
 	sayword()
 
 def sayword(spell=False):
 	word = ""
 	revx, revy = state.revx, state.revy
-	d = screen.display
-	while state.revx > 0 and get_char(d) != ' ' and d[state.revy][state.revx - 1] != ' ':
+	b = screen.buffer
+	while state.revx > 0 and get_char() != ' ' and b[state.revy][state.revx - 1].data != ' ':
 		move_prevchar()
-	if state.revx == 0 and get_char(d) == ' ':
+	if state.revx == 0 and get_char() == ' ':
 		say("space")
 		return
 	while state.revx < screen.columns - 1:
-		word += get_char(d)
+		word += get_char()
 		move_nextchar()
-		if get_char(d) == ' ':
+		if get_char() == ' ':
 			break
 	if spell:
 		say(' '.join(word), force_process_symbols=True)
@@ -669,14 +675,13 @@ def sayword(spell=False):
 def nextword():
 	revx, revy = state.revx, state.revy
 	m = screen.columns - 1
-	d = screen.display
 	#Move over any existing word we might be in the middle of
-	while state.revx < m and get_char(d) != ' ':
+	while state.revx < m and get_char() != ' ':
 		move_nextchar()
 	#Skip whitespace
-	while state.revx < m and get_char(d) == ' ':
+	while state.revx < m and get_char() == ' ':
 		move_nextchar()
-	if state.revx == m and get_char(d) == ' ':
+	if state.revx == m and get_char() == ' ':
 		say("right")
 		state.revx = revx
 		sayword()
