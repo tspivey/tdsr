@@ -717,15 +717,17 @@ def copy_text(start_y, start_x, end_y, end_x):
 	display = screen.display
 	buf = []
 	start = start_x
-	for y in range(lines):
-		if lines > 1 and y < lines - 1:
+	for y in range(start_y, end_y + 1):
+		if y < end_y:
 			end = screen.columns - 1
 		else:
 			end = end_x
-		if y > 0:
+		if y > start_y:
 			start = 0
-		data = display[start_y+y][start:end + 1].rstrip()
-		buf.append(data)
+		chars = []
+		for x in range(start, end_x + 1):
+			chars.append(screen.buffer[y][x].data)
+		buf.append("".join(chars).rstrip())
 	buf = "\n".join(buf)
 	copy_to_clip(buf)
 
