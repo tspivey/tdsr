@@ -322,6 +322,7 @@ def main():
 	if pid == 0:
 		handle_child(args)
 	screen = MyScreen(cols, rows)
+	pyte.Stream.csi['S'] = 'scroll_up'
 	stream = pyte.Stream()
 	stream.attach(screen)
 	screen.define_charset('B', '(')
@@ -538,6 +539,16 @@ class MyScreen(pyte.Screen):
 		if how == 3:
 			return
 		super().erase_in_display(how, private=private)
+
+	def scroll_up(self, count):
+		if count == 0:
+			count = 1
+		top, bottom = self.margins or pyte.screens.Margins(0, self.lines - 1)
+		y = self.cursor.y
+		self.cursor.y = bottom
+		for i in range(count):
+			self.index()
+		self.cursor.y = y
 
 def sb():
 	data = speech_buffer.getvalue()
