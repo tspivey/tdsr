@@ -723,8 +723,6 @@ def copy_text(start_y, start_x, end_y, end_x):
 		start_x, end_x = end_x, start_x
 	if start_y > end_y:
 		start_y, end_y = end_y, start_y
-	lines = (end_y - start_y) + 1
-	cols = (end_x - start_x) + 1
 	display = screen.display
 	buf = []
 	start = start_x
@@ -736,7 +734,7 @@ def copy_text(start_y, start_x, end_y, end_x):
 		if y > start_y:
 			start = 0
 		chars = []
-		for x in range(start, end_x + 1):
+		for x in range(start, end + 1):
 			chars.append(screen.buffer[y][x].data)
 		buf.append("".join(chars).rstrip())
 	buf = "\n".join(buf)
