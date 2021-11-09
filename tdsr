@@ -22,6 +22,7 @@ import shlex
 import logging
 import platform
 import signal
+import copy
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -479,6 +480,11 @@ def endOfLine():
 
 class MyScreen(pyte.Screen):
 
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.saved_cursor = None
+		self.saved_buffer = None
+
 	def set_margins(self, top=None, bottom=None):
 		if top == 0 and bottom is None:
 			top = None
@@ -527,12 +533,24 @@ class MyScreen(pyte.Screen):
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
+		if 1049 in modes and self.saved_cursor is not None:
+			self.cursor = self.saved_cursor
+			self.buffer = self.saved_buffer
+			self.saved_cursor = None
+			self.saved_buffer = None
+			self.dirty.update(range(self.lines))
 		super().reset_mode(*modes, **kwargs)
 
 	def set_mode(self, *modes, **kwargs):
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
+		if 1049 in modes:
+			self.saved_cursor = copy.copy(self.cursor)
+			self.saved_buffer = copy.deepcopy(self.buffer)
+			self.dirty.update(range(self.lines))
+			self.cursor_position()
+			self.buffer.clear()
 		super().set_mode(*modes, **kwargs)
 
 	def erase_in_display(self, how=0, private=False):
