@@ -690,11 +690,12 @@ def sayword(spell=False):
 	if state.revx == 0 and get_char() == ' ':
 		say("space")
 		return
+	word += get_char()
 	while state.revx < screen.columns - 1:
-		word += get_char()
 		move_nextchar()
 		if get_char() == ' ':
 			break
+		word += get_char()
 	if spell:
 		say(' '.join(word), force_process_symbols=True)
 	else:
