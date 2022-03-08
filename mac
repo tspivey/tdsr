@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #Copyright (C) 2016, 2017  Tyler Spivey
 #See the license in COPYING.txt
 from Foundation import (
@@ -7,6 +7,7 @@ from Foundation import (
 )
 from AppKit import NSSpeechSynthesizer, NSSpeechRecentSyncProperty
 from PyObjCTools import AppHelper
+from objc import python_method
 import threading
 
 rate = None
@@ -24,6 +25,7 @@ class QueuedSynth(NSObject):
 		self.handle_index = handler
 		return self
 
+	@python_method
 	def speak(self, text, index=None):
 		with self.lock:
 			self.queue.append((text, index))
@@ -88,7 +90,7 @@ class FileObserver(NSObject):
 		else:
 			self.fileHandle.readInBackgroundAndNotify()
 			if self.readCallback is not None:
-				self.readCallback(self, str(newData))
+				self.readCallback(self, bytes(newData))
 
 	def close(self):
 		self.nc.removeObserver_(self)
@@ -115,8 +117,8 @@ def gotLine(observer, line):
 	if not line:
 		AppHelper.stopEventLoop()
 		return
-	line = line.strip('\n')
-	for l in line.split('\n'):
+	line = line.strip(b'\n')
+	for l in line.split(b'\n'):
 		handle_line(l)
 
 def handle_line(line):
@@ -146,7 +148,7 @@ def handle_line(line):
 		volume = str(int(line[1:]) / 100.0)
 
 def gotError(observer, err):
-	print "error:", err
+	print("error:", err)
 	AppHelper.stopEventLoop()
 
 synth = None
