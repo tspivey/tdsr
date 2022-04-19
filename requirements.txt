@@ -1,2 +1,2 @@
-pyte==0.7.0
+pyte==0.8.1
 pyobjc
