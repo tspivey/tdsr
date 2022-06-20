@@ -1,7 +1,7 @@
 # TDSR
 This is a console-based screen reader.
 It has been tested under macOS and Linux.
-It might also run on FreeBSD and other *nix systems, but this hasn't been tested.
+It might also run on FreeBSD and other \*nix systems, but this hasn't been tested.
 
 ## What works
 * Reading output
@@ -13,23 +13,23 @@ Compatibility is not guaranteed between versions.
 ## Requirements
 * Python 3
 * pyte
+* wcwidth
+* pyobjc (macOS only)
 * speech server
 
 ## Installation on macOS
 1. Install Python 3. If using [Homebrew](http://brew.sh/), `brew install python3`.
-1. Clone this repository.
-```git clone https://github.com/tspivey/tdsr.git```
-1. cd tdsr
-1. pip3 install -Ur requirements.txt
-1. Assuming the repository is in ```~/tdsr```, run:
-`~/tdsr/tdsr`
+1. Install TDSR from the repository using pip.
+`pip install git+https://github.com/tspivey/tdsr.git --user`
+1. Run:
+`tdsr`
 and it should start speaking.
 
 ## Installation on Linux
 
 1. Install Python 3 and Speech Dispatcher.  They should be available from your package manager.
 You may also need to install Speech Dispatcher's Python bindings, if they were packaged separately by your distro.
-1. Follow the rest of the instructions for Mac OS X, starting with "Clone this repository".
+1. Follow the rest of the instructions for Mac OS X, starting with "Install TDSR".
 
 ## Terminal setup
 Open Terminal preferences, under Profiles check Use Option as Meta key.
@@ -55,7 +55,7 @@ Once in the config menu, you can use:
 * Enter - exit, saving the configuration.
 
 ## Symbols
-Symbols can be added in the configuration file (```~/.tdsr.cfg```),
+Symbols can be added in the configuration file (`~/.tdsr.cfg`),
 under the symbols section.
 
 The format is:

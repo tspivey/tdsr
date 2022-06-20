@@ -5,12 +5,13 @@
 import sys
 import os
 import select
-import tty
 import fcntl
 import struct
 import termios
 import codecs
 import pyte
+from importlib.abc import Traversable
+from importlib.resources import as_file, files
 from wcwidth import wcwidth
 from io import StringIO, SEEK_END
 import subprocess
@@ -23,11 +24,12 @@ import logging
 import platform
 import signal
 import copy
+import tdsr
+import tdsr.backend
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
-TDSR_DIR = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-DEFAULT_CONFIG = os.path.join(TDSR_DIR, 'tdsr.cfg.dist')
+DEFAULT_CONFIG = files(tdsr).joinpath('tdsr.cfg.dist')
 CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 REPEAT_KEY_TIMEOUT = 0.5
@@ -248,7 +250,13 @@ class Synth:
 		self.volume = None
 
 	def start(self):
-		self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
+		if isinstance(self.speech_server, Traversable):
+			# Open embedded resources
+			with as_file(self.speech_server) as speech_server_path:
+				self.pipe = subprocess.Popen(speech_server_path, stdin=subprocess.PIPE)
+		else:
+			self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
+
 		if self.rate:
 			self.set_rate(self.rate)
 		if self.volume:
@@ -282,7 +290,7 @@ class Synth:
 state = State()
 speech_buffer = StringIO()
 lastkey = ""
-def main():
+def main(term_params):
 	global CURSOR_TIMEOUT, signal_pipe
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s', '--speech-server', action='store', help='speech server command to run')
@@ -291,10 +299,10 @@ def main():
 	args = parser.parse_args()
 	if args.speech_server is None:
 		if platform.system() == 'Darwin':
-			speech_server = os.path.join(TDSR_DIR, 'mac')
+			speech_server = files(tdsr.backend).joinpath('mac.py')
 		else:
 			# Works on Linux, hopefully other places too:
-			speech_server = os.path.join(TDSR_DIR, 'speechdispatcher')
+			speech_server = files(tdsr.backend).joinpath('speechdispatcher.py')
 	else:
 		speech_server = shlex.split(args.speech_server)
 	if args.debug:
@@ -308,8 +316,9 @@ def main():
 	global synth, screen
 	synth = Synth(speech_server)
 	synth.start()
-	if os.path.exists(DEFAULT_CONFIG) and not os.path.exists(CONFIG_FILE):
-			state.config.read(DEFAULT_CONFIG)
+	if not os.path.exists(CONFIG_FILE):
+		with as_file(DEFAULT_CONFIG) as default_config_path:
+			state.config.read(default_config_path)
 			state.save_config()
 	state.config.read(CONFIG_FILE)
 	state.symbols_re = state.build_symbols_re()
@@ -330,7 +339,7 @@ def main():
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
-	termios.tcsetattr(fd, termios.TCSADRAIN, old)
+	termios.tcsetattr(fd, termios.TCSADRAIN, term_params)
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
@@ -827,11 +836,3 @@ keymap = {
 	b'\x1bOC': arrow_right,
 	b'\x1bOD': arrow_left,
 }
-
-if __name__ == '__main__':
-	try:
-		old = termios.tcgetattr(0)
-		tty.setraw(0)
-		main()
-	finally:
-		termios.tcsetattr(0, termios.TCSADRAIN, old)
