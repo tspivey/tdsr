@@ -1,2 +1,2 @@
 pyte==0.8.1
-pyobjc
+pyobjc; sys_platform == 'darwin'
