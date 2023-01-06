@@ -137,6 +137,10 @@ def handle_line(line):
 		synth.stop()
 	elif line[0] == u"l":
 		prefix = u"[[char ltrl]]"
+		if rate:
+			prefix += u"[[rate %s]]" % rate
+		if volume:
+			prefix += u"[[volm %s]]" % volume
 		suffix = "[[char norm]]"
 		if len(line) == 2 and line[1].isupper():
 			prefix += u"[[pbas +10]]"
@@ -163,3 +167,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+	
