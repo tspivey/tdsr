@@ -1,7 +1,7 @@
 # TDSR
 This is a console-based screen reader.
-It has been tested under macOS and Linux.
-It might also run on FreeBSD and other *nix systems, but this hasn't been tested.
+It has been tested under macOS, Linux and FreeBSD.
+It might also run on other \*nix systems, but this hasn't been tested.
 
 ## What works
 * Reading output
