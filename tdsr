@@ -394,6 +394,10 @@ in_escape = False
 escsec = ""
 def process_input(bytes, fd):
 	global lastkey
+	# Busybox ash asks the terminal to send the cursor position, ignore it
+	if re.match(br'\033\[\d+;\d+R', bytes):
+		os.write(fd, bytes)
+		return
 	lastkey = ""
 	silence()
 	state.delayed_functions = []
