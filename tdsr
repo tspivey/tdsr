@@ -23,6 +23,8 @@ import logging
 import platform
 import signal
 import copy
+import re
+
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -444,11 +446,22 @@ def handle_delete():
 	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
 
+matcher = re.compile(r'([-=!#])\1*')
+
 def sayline(y):
 	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
 	if line == u'':
 		line = u'blank'
-	say(line)
+
+	results = matcher.finditer(line)
+
+	new_line = line
+	for r in results:
+		match = r.group()
+		if len(match) > 1:
+			new_line = new_line.replace(match, f"{len(match)} {r.groups()[0]}", 1)
+
+	say(new_line)
 
 def prevline():
 	state.revy -= 1
