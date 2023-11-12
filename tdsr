@@ -453,15 +453,20 @@ def sayline(y):
 	if line == u'':
 		line = u'blank'
 
-	results = matcher.finditer(line)
+	new_line = replace_duplicate_characters_with_count(line)
 
+	say(new_line)
+
+
+def replace_duplicate_characters_with_count(line):
+	results = matcher.finditer(line)
 	new_line = line
 	for r in results:
 		match = r.group()
 		if len(match) > 1:
 			new_line = new_line.replace(match, f"{len(match)} {r.groups()[0]}", 1)
+	return new_line
 
-	say(new_line)
 
 def prevline():
 	state.revy -= 1
@@ -618,7 +623,8 @@ def sb():
 	if data == u'':
 		return
 	if not state.tempsilence:
-		say(data)
+		new_line = replace_duplicate_characters_with_count(data)
+		say(new_line)
 
 def say(data, force_process_symbols=False):
 	data = data.strip()
