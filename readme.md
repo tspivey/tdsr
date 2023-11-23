@@ -64,6 +64,62 @@ character code = name
 ```
 Because of how the config system works, it's best to do this with one TDSR open, then exit and re-launch to see the changes.
 
+## Plugins
+Custom key binds and handlers can be added via the plugins and commands section of the config files
+and a python module in the plugins directory that exports the following method signature:
+
+```python
+# Name: parse_output
+# Parameters: an array of strings (the lines from the terminal)
+# Returns: an array of strings (the things to speak)
+def parse_output(lines):
+    return ["a list of things to say"]
+```
+
+### Config file
+In ~/.tdsr.cfg you add to the plugins and commands section to modify the shortcut and terminal command that has been run
+
+Required: The plugin section maps to a letter you press with alt to trigger the plugin.
+
+Optional: The command section is a string of  the command you ran previous to triggering the plugin (this minimizes processing time)
+
+Optional: A regex to indicate the start of your prompt line in your terminal
+
+#### Example
+
+To add a shortcut for alt d to trigger a plugin called my_plugin add the following under [plugins]
+
+```
+my_plugin = d
+```
+If you have sub folders, separate them with a dot e.g. for plugins/me/my_plugin
+
+```
+me.my_plugin = d
+```
+
+To specify a command of `echo "hi"` (which makes parsing slightly more efficient) add the following under [commands]
+```
+my_plugin = echo "hi"
+```
+Use dots for sub folders, like the plugin config
+
+The default prompt is match anything, if you use zsh you can use the following regular expression:
+
+```
+prompt = ^➜\s{2}.+✗?
+```
+
+#### Errors
+
+If you hear "error loading plugin" followed by an error, you can launch tdsr in debug mode
+
+```commandline
+~/tdsr --debug
+```
+
+And search the logs for "Error loading plugin" to see more details
+
 ## License
 Copyright (C) 2016, 2017  Tyler Spivey
 
