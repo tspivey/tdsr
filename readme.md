@@ -79,9 +79,9 @@ def parse_output(lines):
 ### Config file
 In ~/.tdsr.cfg you add to the plugins and commands section to modify the shortcut and terminal command that has been run
 
-Required: The plugin section maps to a letter you press with alt to trigger the plugin.
+Required: [plugins] The plugin section maps to a letter you press with alt to trigger the plugin.
 
-Optional: The command section is a string of  the command you ran previous to triggering the plugin (this minimizes processing time)
+Optional: [commands] The command section is a regex of the command you ran previous to triggering the plugin (this minimizes processing time)
 
 Optional: A regex to indicate the start of your prompt line in your terminal
 
@@ -102,9 +102,14 @@ To specify a command of `echo "hi"` (which makes parsing slightly more efficient
 ```
 my_plugin = echo "hi"
 ```
-Use dots for sub folders, like the plugin config
+Use dots for sub folders, like the plugin config. You can use a regular expression to make it more flexible, e.g. to
+specify a command of `echo "hi"` or `echo "bye"`
 
-The default prompt is match anything, if you use zsh you can use the following regular expression:
+```
+my_plugin = echo "(hi|bye)"
+```
+
+The default prompt is match anything, if you use zsh you can use the following regular expression under [speech]:
 
 ```
 prompt = ^➜\s{2}.+✗?

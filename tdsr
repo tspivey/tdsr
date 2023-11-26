@@ -459,14 +459,19 @@ def handle_plugin(plugin_name):
 	except Exception as e:
 		logger.error(e)
 		say(f"Error loading plugin {e.args}")
+
+	prompt_matcher = re.compile(fr"{state.config.get('speech', 'prompt', fallback='.*')}")
+	command = state.config.get('commands', plugin_name, fallback=None)
+	check_command = command is not None
+	if command:
+		command_matcher = re.compile(command)
+
 	def handle():
 		lines = []
-		prompt_matcher = re.compile(fr"{state.config.get('speech', 'prompt', fallback='.*')}")
-		command = state.config.get('commands', plugin_name, fallback=f'{plugin_name} ')
 		for i in reversed(range(len(screen.buffer))):
 			line = "".join(screen.buffer[i][x].data for x in range(screen.columns)).strip()
 			lines.append(line)
-			if prompt_matcher.match(line) and command in line:
+			if prompt_matcher.search(line) and check_command and command_matcher.search(line):
 				break
 		try:
 			lines_to_read = mod.parse_output(lines)
