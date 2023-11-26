@@ -52,6 +52,7 @@ Once in the config menu, you can use:
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
+* s - Toggle repeated symbols
 * Enter - exit, saving the configuration.
 
 ## Symbols
@@ -63,6 +64,13 @@ The format is:
 character code = name
 ```
 Because of how the config system works, it's best to do this with one TDSR open, then exit and re-launch to see the changes.
+
+## Repeating symbols
+Symbols you would like condensed down to "42 =" instead of "= = = =" you can specify under the speech section
+
+```
+repeated_symbols_values = -_=! 
+```
 
 ## License
 Copyright (C) 2016, 2017  Tyler Spivey

@@ -51,7 +51,7 @@ class State:
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
-		"line_pause": True}
+		"line_pause": True, 'repeated_symbols': 'false', 'repeated_symbols_values': '-=!#'}
 		self.config['symbols'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
@@ -117,6 +117,7 @@ class ConfigHandler(KeyHandler):
 			b'e': self.set_echo,
 			b'c': self.set_cursor_tracking,
 			b'l': self.set_line_pause,
+			b's': self.set_repeated_symbols,
 		}
 		super().__init__(self.keymap)
 
@@ -193,6 +194,13 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['line_pause'] = str(current)
 		state.save_config()
 		say("line pause on" if current else "line pause off")
+
+	def set_repeated_symbols(self):
+		current = state.config.getboolean('speech', 'repeated_symbols', fallback=False)
+		current = not current
+		state.config['speech']['repeated_symbols'] = str(current)
+		state.save_config()
+		say("repeated symbols on" if current else "repeated symbols off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -446,7 +454,6 @@ def handle_delete():
 	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
 
-matcher = re.compile(r'([-=!#])\1*')
 
 def sayline(y):
 	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
@@ -459,12 +466,16 @@ def sayline(y):
 
 
 def replace_duplicate_characters_with_count(line):
-	results = matcher.finditer(line)
+	symbols = state.config.get('speech', 'repeated_symbols_values', fallback='-=!#')
+	matcher = re.compile(fr'([{symbols}])\1*')
 	new_line = line
-	for r in results:
-		match = r.group()
-		if len(match) > 1:
-			new_line = new_line.replace(match, f"{len(match)} {r.groups()[0]}", 1)
+	if state.config.getboolean('speech', 'repeated_symbols'):
+		results = matcher.finditer(line)
+		for r in results:
+			match = r.group()
+			if len(match) > 1:
+				new_line = new_line.replace(match, f"{len(match)} {r.groups()[0]}", 1)
+
 	return new_line
 
 
