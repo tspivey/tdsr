@@ -52,6 +52,7 @@ class State:
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
 		"line_pause": True}
 		self.config['symbols'] = {}
+		self.config['plugins'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
 		self.copy_y = None
