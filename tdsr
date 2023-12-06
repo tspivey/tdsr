@@ -791,12 +791,17 @@ def copy_text(start_y, start_x, end_y, end_x):
 
 def copy_to_clip(data):
 	data = data.encode('utf-8')
+	proc_args = []
 	if platform.system() == 'Darwin':
-		proc = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
-		proc.stdin.write(data)
-		proc.stdin.close()
+		proc_args = ['pbcopy']
 	elif platform.system() == 'Linux':
-		proc = subprocess.Popen(['xclip', '-selection', 'clip'], stdin=subprocess.PIPE)
+		if os.getenv('XDG_SESSION_TYPE') == 'wayland':
+			proc_args = ['wl-copy']
+		else:
+			proc_args = ['xclip', '-selection', 'clip']
+
+	if proc_args:
+		proc = subprocess.Popen(proc_args, stdin=subprocess.PIPE)
 		proc.stdin.write(data)
 		proc.stdin.close()
 
