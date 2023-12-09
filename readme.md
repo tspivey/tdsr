@@ -52,6 +52,7 @@ Once in the config menu, you can use:
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
+* s - Toggle repeated symbols
 * Enter - exit, saving the configuration.
 
 ## Symbols
@@ -124,6 +125,13 @@ If you hear "error loading plugin" followed by an error, you can launch tdsr in 
 ```
 
 And search the logs for "Error loading plugin" to see more details
+
+## Repeating symbols
+Symbols you would like condensed down to "42 =" instead of "= = = =" you can specify under the speech section
+
+```
+repeated_symbols_values = -_=! 
+```
 
 ## License
 Copyright (C) 2016, 2017  Tyler Spivey
