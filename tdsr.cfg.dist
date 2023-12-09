@@ -1,5 +1,10 @@
 [speech]
 process_symbols = False
+prompt = .*
+
+[commands]
+
+[plugins]
 
 [symbols]
 32 = space

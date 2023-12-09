@@ -2,6 +2,7 @@
 #tdsr, a terminal screen reader
 #Copyright (C) 2016, 2017  Tyler Spivey
 #See the license in COPYING.txt
+import importlib
 import sys
 import os
 import select
@@ -51,6 +52,7 @@ class State:
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
 		"line_pause": True}
 		self.config['symbols'] = {}
+		self.config['plugins'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
 		self.copy_y = None
@@ -81,6 +83,10 @@ class KeyHandler:
 		self.fd = fd
 		self.last_key = None
 		self.last_key_time = 0.0
+
+	def add(self, key, handler):
+		if key not in self.keymap:
+			self.keymap[key] = handler
 
 	def process(self, data):
 		key_time = time.time()
@@ -356,6 +362,10 @@ def main():
 	decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
+	plugins = dict(state.config.items('plugins'))
+	for plugin, shortcut in plugins.items():
+		default_key_handler.add(f'\x1b{shortcut}'.encode(), handle_plugin(plugin))
+
 	termios.tcsetattr(fd, termios.TCSADRAIN, old)
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
@@ -443,6 +453,36 @@ def handle_delete():
 	x = screen.cursor.x
 	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
+
+def handle_plugin(plugin_name):
+	try:
+		mod = importlib.import_module(f"plugins.{plugin_name}")
+	except Exception as e:
+		logger.error(e)
+		say(f"Error loading plugin {e.args}")
+
+	prompt_matcher = re.compile(fr"{state.config.get('speech', 'prompt', fallback='.*')}")
+	command = state.config.get('commands', plugin_name, fallback=None)
+	check_command = command is not None
+	if command:
+		command_matcher = re.compile(command)
+
+	def handle():
+		lines = []
+		for i in reversed(range(len(screen.buffer))):
+			line = "".join(screen.buffer[i][x].data for x in range(screen.columns)).strip()
+			lines.append(line)
+			if prompt_matcher.search(line) and check_command and command_matcher.search(line):
+				break
+		try:
+			lines_to_read = mod.parse_output(lines)
+			for line in lines_to_read:
+				say(line)
+		except Exception as e:
+			logger.error(e)
+			say(f"Error loading plugin {e.args}")
+
+	return handle
 
 def sayline(y):
 	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
