@@ -91,7 +91,7 @@ class KeyHandler:
 			self.keymap[key] = handler
 
 	def process(self, data):
-		key_time = time.time()
+		key_time = time.monotonic()
 		key_delta = key_time - self.last_key_time
 		self.last_key_time = key_time
 		repeat = data + data
@@ -713,7 +713,7 @@ def arrow_right():
 	return KeyHandler.PASSTHROUGH
 
 def schedule(timeout, func, set_tempsilence=False):
-	state.delayed_functions.append((time.time() + timeout, func))
+	state.delayed_functions.append((time.monotonic() + timeout, func))
 	if set_tempsilence:
 		state.tempsilence = True
 
@@ -721,7 +721,7 @@ def run_scheduled():
 	if not state.delayed_functions:
 		return
 	to_remove = []
-	curtime = time.time()
+	curtime = time.monotonic()
 	for i in state.delayed_functions:
 		t, f = i
 		if curtime >= t:
@@ -733,7 +733,7 @@ def run_scheduled():
 def time_until_next_delayed():
 	if not state.delayed_functions:
 		return None
-	return max(0, state.delayed_functions[0][0] - time.time())
+	return max(0, state.delayed_functions[0][0] - time.monotonic())
 
 def config():
 	say("config")
