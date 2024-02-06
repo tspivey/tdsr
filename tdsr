@@ -656,6 +656,11 @@ class MyScreen(pyte.Screen):
 			return
 		super().erase_in_display(how, private=private)
 
+	def select_graphic_rendition(self, *attrs, **kwargs):
+		if 'private' in kwargs:
+			return
+		return super().select_graphic_rendition(*attrs)
+
 	def scroll_up(self, count):
 		if count == 0:
 			count = 1
