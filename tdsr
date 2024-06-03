@@ -366,6 +366,7 @@ def main():
 		handle_child(args)
 	screen = MyScreen(cols, rows)
 	pyte.Stream.csi['S'] = 'scroll_up'
+	pyte.Stream.csi['T'] = 'scroll_down'
 	stream = pyte.Stream()
 	stream.attach(screen)
 	screen.define_charset('B', '(')
@@ -660,6 +661,16 @@ class MyScreen(pyte.Screen):
 		if 'private' in kwargs:
 			return
 		return super().select_graphic_rendition(*attrs)
+
+	def scroll_down(self,	count):
+		if count == 0:
+			count = 1
+		top,	bottom = self.margins or pyte.screens.Margins(0, self.lines - 1)
+		y = self.cursor.y
+		self.cursor.y = top
+		for i in range(count):
+			self.reverse_index()
+		self.cursor.y = y
 
 	def scroll_up(self, count):
 		if count == 0:
