@@ -951,9 +951,10 @@ keymap = {
 
 if __name__ == '__main__':
 	try:
-	    setproctitle('tdsr')
+		setproctitle('tdsr')
 	except:
-	        pass
+		pass
+	try:
 		old = termios.tcgetattr(0)
 		tty.setraw(0)
 		main()
