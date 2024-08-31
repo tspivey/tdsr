@@ -25,6 +25,7 @@ import platform
 import signal
 import copy
 import re
+from setproctitle import setproctitle
 
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
@@ -950,6 +951,9 @@ keymap = {
 
 if __name__ == '__main__':
 	try:
+	    setproctitle('tdsr')
+	except:
+	        pass
 		old = termios.tcgetattr(0)
 		tty.setraw(0)
 		main()
