@@ -2,6 +2,7 @@
 #tdsr, a terminal screen reader
 #Copyright (C) 2016, 2017  Tyler Spivey
 #See the license in COPYING.txt
+import importlib
 import sys
 import os
 import select
@@ -26,6 +27,8 @@ import signal
 import copy
 import tdsr
 import tdsr.backend
+import re
+
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
 
@@ -51,8 +54,9 @@ class State:
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
-		"line_pause": True}
+		"line_pause": True, 'repeated_symbols': 'false', 'repeated_symbols_values': '-=!#'}
 		self.config['symbols'] = {}
+		self.config['plugins'] = {}
 		self.symbols_Re = None
 		self.copy_x = None
 		self.copy_y = None
@@ -84,8 +88,12 @@ class KeyHandler:
 		self.last_key = None
 		self.last_key_time = 0.0
 
+	def add(self, key, handler):
+		if key not in self.keymap:
+			self.keymap[key] = handler
+
 	def process(self, data):
-		key_time = time.time()
+		key_time = time.monotonic()
 		key_delta = key_time - self.last_key_time
 		self.last_key_time = key_time
 		repeat = data + data
@@ -111,11 +119,13 @@ class ConfigHandler(KeyHandler):
 		self.keymap = {
 			b'r': self.set_rate,
 			b'v': self.set_volume,
+			b'V': self.set_voice_idx,
 			b'p': self.set_process_symbols,
 			b'd': self.set_delay,
 			b'e': self.set_echo,
 			b'c': self.set_cursor_tracking,
 			b'l': self.set_line_pause,
+			b's': self.set_repeated_symbols,
 		}
 		super().__init__(self.keymap)
 
@@ -149,6 +159,22 @@ class ConfigHandler(KeyHandler):
 		state.save_config()
 		say("Confirmed")
 
+	def set_voice_idx(self):
+		say("voice index")
+		state.key_handlers.append(BufferHandler(on_accept=self.set_voice_idx2))
+
+	def set_voice_idx2(self, val):
+		try:
+			val = int(val)
+		except ValueError:
+			say("Invalid value")
+			return
+		synth.set_voice_idx(val)
+		state.config['speech']['voice_idx'] = str(val)
+		state.save_config()
+		say("Confirmed")
+
+
 	def set_process_symbols(self):
 		current = state.config.getboolean('speech', 'process_symbols', fallback=False)
 		current = not current
@@ -176,6 +202,13 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['line_pause'] = str(current)
 		state.save_config()
 		say("line pause on" if current else "line pause off")
+
+	def set_repeated_symbols(self):
+		current = state.config.getboolean('speech', 'repeated_symbols', fallback=False)
+		current = not current
+		state.config['speech']['repeated_symbols'] = str(current)
+		state.save_config()
+		say("repeated symbols on" if current else "repeated symbols off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -248,6 +281,7 @@ class Synth:
 		self.speech_server = speech_server
 		self.rate = None
 		self.volume = None
+		self.voice_idx = None
 
 	def start(self):
 		if isinstance(self.speech_server, Traversable):
@@ -257,10 +291,12 @@ class Synth:
 		else:
 			self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
 
-		if self.rate:
+		if self.rate is not None:
 			self.set_rate(self.rate)
-		if self.volume:
+		if self.volume is not None:
 			self.set_volume(self.volume)
+		if self.voice_idx is not None:
+			self.set_voice_idx(self.voice_idx)
 
 	def send(self, text):
 		text = text.encode('utf-8')
@@ -283,6 +319,10 @@ class Synth:
 		self.volume = volume
 		self.send('v%d\n' % volume)
 
+	def set_voice_idx(self, voice_idx):
+		self.voice_idx = voice_idx
+		self.send('V%d\n' % voice_idx)
+		
 	def close(self):
 		self.pipe.stdin.close()
 		self.pipe.wait()
@@ -326,6 +366,8 @@ def main(term_params):
 		synth.set_rate(int(state.config['speech']['rate']))
 	if 'volume' in state.config['speech']:
 		synth.set_volume(int(state.config['speech']['volume']))
+	if 'voice_idx' in state.config['speech']:
+		synth.set_voice_idx(int(state.config['speech']['voice_idx']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
 	pid, fd = os.forkpty()
@@ -333,6 +375,7 @@ def main(term_params):
 		handle_child(args)
 	screen = MyScreen(cols, rows)
 	pyte.Stream.csi['S'] = 'scroll_up'
+	pyte.Stream.csi['T'] = 'scroll_down'
 	stream = pyte.Stream()
 	stream.attach(screen)
 	screen.define_charset('B', '(')
@@ -340,6 +383,10 @@ def main(term_params):
 	default_key_handler = KeyHandler(keymap, fd)
 	state.key_handlers.append(default_key_handler)
 	termios.tcsetattr(fd, termios.TCSADRAIN, term_params)
+	plugins = dict(state.config.items('plugins'))
+	for plugin, shortcut in plugins.items():
+		default_key_handler.add(f'\x1b{shortcut}'.encode(), handle_plugin(plugin))
+
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
@@ -403,6 +450,10 @@ in_escape = False
 escsec = ""
 def process_input(bytes, fd):
 	global lastkey
+	# Busybox ash asks the terminal to send the cursor position, ignore it
+	if re.match(br'\033\[\d+;\d+R', bytes):
+		os.write(fd, bytes)
+		return
 	lastkey = ""
 	silence()
 	state.delayed_functions = []
@@ -423,11 +474,59 @@ def handle_delete():
 	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
 
+def handle_plugin(plugin_name):
+	try:
+		mod = importlib.import_module(f"plugins.{plugin_name}")
+	except Exception as e:
+		logger.error(e)
+		say(f"Error loading plugin {e.args}")
+
+	prompt_matcher = re.compile(fr"{state.config.get('speech', 'prompt', fallback='.*')}")
+	command = state.config.get('commands', plugin_name, fallback=None)
+	check_command = command is not None
+	if command:
+		command_matcher = re.compile(command)
+
+	def handle():
+		lines = []
+		for i in reversed(range(len(screen.buffer))):
+			line = "".join(screen.buffer[i][x].data for x in range(screen.columns)).strip()
+			lines.append(line)
+			if prompt_matcher.search(line) and check_command and command_matcher.search(line):
+				break
+		try:
+			lines_to_read = mod.parse_output(lines)
+			for line in lines_to_read:
+				say(line)
+		except Exception as e:
+			logger.error(e)
+			say(f"Error loading plugin {e.args}")
+
+	return handle
+
 def sayline(y):
 	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
 	if line == u'':
 		line = u'blank'
-	say(line)
+
+	new_line = replace_duplicate_characters_with_count(line)
+
+	say(new_line)
+
+
+def replace_duplicate_characters_with_count(line):
+	symbols = state.config.get('speech', 'repeated_symbols_values', fallback='-=!#')
+	matcher = re.compile(fr'([{symbols}])\1*')
+	new_line = line
+	if state.config.getboolean('speech', 'repeated_symbols'):
+		results = matcher.finditer(line)
+		for r in results:
+			match = r.group()
+			if len(match) > 1:
+				new_line = new_line.replace(match, f"{len(match)} {r.groups()[0]}", 1)
+
+	return new_line
+
 
 def prevline():
 	state.revy -= 1
@@ -567,6 +666,21 @@ class MyScreen(pyte.Screen):
 			return
 		super().erase_in_display(how, private=private)
 
+	def select_graphic_rendition(self, *attrs, **kwargs):
+		if 'private' in kwargs:
+			return
+		return super().select_graphic_rendition(*attrs)
+
+	def scroll_down(self,	count):
+		if count == 0:
+			count = 1
+		top,	bottom = self.margins or pyte.screens.Margins(0, self.lines - 1)
+		y = self.cursor.y
+		self.cursor.y = top
+		for i in range(count):
+			self.reverse_index()
+		self.cursor.y = y
+
 	def scroll_up(self, count):
 		if count == 0:
 			count = 1
@@ -584,7 +698,8 @@ def sb():
 	if data == u'':
 		return
 	if not state.tempsilence:
-		say(data)
+		new_line = replace_duplicate_characters_with_count(data)
+		say(new_line)
 
 def say(data, force_process_symbols=False):
 	data = data.strip()
@@ -623,7 +738,7 @@ def arrow_right():
 	return KeyHandler.PASSTHROUGH
 
 def schedule(timeout, func, set_tempsilence=False):
-	state.delayed_functions.append((time.time() + timeout, func))
+	state.delayed_functions.append((time.monotonic() + timeout, func))
 	if set_tempsilence:
 		state.tempsilence = True
 
@@ -631,7 +746,7 @@ def run_scheduled():
 	if not state.delayed_functions:
 		return
 	to_remove = []
-	curtime = time.time()
+	curtime = time.monotonic()
 	for i in state.delayed_functions:
 		t, f = i
 		if curtime >= t:
@@ -643,7 +758,7 @@ def run_scheduled():
 def time_until_next_delayed():
 	if not state.delayed_functions:
 		return None
-	return max(0, state.delayed_functions[0][0] - time.time())
+	return max(0, state.delayed_functions[0][0] - time.monotonic())
 
 def config():
 	say("config")
@@ -770,12 +885,17 @@ def copy_text(start_y, start_x, end_y, end_x):
 
 def copy_to_clip(data):
 	data = data.encode('utf-8')
+	proc_args = []
 	if platform.system() == 'Darwin':
-		proc = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
-		proc.stdin.write(data)
-		proc.stdin.close()
+		proc_args = ['pbcopy']
 	elif platform.system() == 'Linux':
-		proc = subprocess.Popen(['xclip', '-selection', 'clip'], stdin=subprocess.PIPE)
+		if os.getenv('XDG_SESSION_TYPE') == 'wayland':
+			proc_args = ['wl-copy']
+		else:
+			proc_args = ['xclip', '-selection', 'clip']
+
+	if proc_args:
+		proc = subprocess.Popen(proc_args, stdin=subprocess.PIPE)
 		proc.stdin.write(data)
 		proc.stdin.close()
 

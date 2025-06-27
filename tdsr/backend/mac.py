@@ -5,63 +5,16 @@ from Foundation import (
 	NSObject, NSFileHandle, NSNotificationCenter,
 	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem,
 )
-from AppKit import NSSpeechSynthesizer, NSSpeechRecentSyncProperty
+from AVFoundation import AVSpeechSynthesizer, AVSpeechUtterance, AVSpeechBoundaryImmediate, AVSpeechSynthesisVoice
 from PyObjCTools import AppHelper
 from objc import python_method
 import threading
 
 rate = None
 volume = None
-
-class QueuedSynth(NSObject):
-	def init_(self, handler):
-		self = super(QueuedSynth, self).init()
-		self.synth = NSSpeechSynthesizer.alloc().init()
-		self.speaking = False
-		self.lock = threading.Lock()
-		self.synth.setDelegate_(self)
-		self.queue = []
-		self.last_index = None
-		self.handle_index = handler
-		return self
-
-	@python_method
-	def speak(self, text, index=None):
-		with self.lock:
-			self.queue.append((text, index))
-			if self.speaking:
-				return
-			self.speak_more()
-
-	def speechSynthesizer_didFinishSpeaking_(self, synth, success):
-		with self.lock:
-			if not self.speaking:
-				return
-			if self.last_index:
-				self.handle_index(self.last_index)
-			if len(self.queue) == 0:
-				self.speaking = False
-				return
-			self.speak_more()
-
-	def speak_more(self):
-		text, index = self.queue.pop(0)
-		res = self.synth.startSpeakingString_(text)
-		if res == False:
-			self.speaking = False
-			return
-		self.speaking = True
-		self.last_index = index
-
-	def stop(self):
-		with self.lock:
-			if not self.speaking: return
-			self.synth.stopSpeaking()
-			self.queue = []
-
-	def speechSynthesizer_didEncounterSyncMessage_(self, synth, message):
-		n = synth.objectForProperty_error_(NSSpeechRecentSyncProperty, None)[0]
-		self.handle_index(n)
+voice_idx = None
+voices = AVSpeechSynthesisVoice.speechVoices()
+avsynth = AVSpeechSynthesizer.new()
 
 class FileObserver(NSObject):
 	def initWithFileDescriptor_readCallback_errorCallback_(self,
@@ -121,45 +74,45 @@ def gotLine(observer, line):
 	for l in line.split(b'\n'):
 		handle_line(l)
 
+
+
 def handle_line(line):
-	global rate, volume
+	global rate, volume, voice_idx
 	line = line.decode('utf-8', 'replace')
-	if line[0] == u"s":
-		l = ""
-		if rate:
-			l += u"[[rate %s]]" % rate
-		if volume:
-			l += u"[[volm %s]]" % volume
-		l += line[1:].replace('[[', ' ')
+	if line[0] == u"s" or line[0] == "l":
+		l = line[1:].replace('[[', ' ')
 		l = l.replace(u'\u23ce', ' ')
-		synth.speak(l)
+		u = AVSpeechUtterance.alloc().initWithString_(l)
+		u.setPrefersAssistiveTechnologySettings_(True)
+		if rate is not None:
+			u.setRate_(rate)
+		if volume is not None:
+			u.setVolume_(volume)
+		if voice_idx is not None:
+			u.setVoice_(voices[voice_idx])
+		avsynth.speakUtterance_(u)
 	elif line[0] == u"x":
-		synth.stop()
-	elif line[0] == u"l":
-		prefix = u"[[char ltrl]]"
-		suffix = "[[char norm]]"
-		if len(line) == 2 and line[1].isupper():
-			prefix += u"[[pbas +10]]"
-			suffix += u"[[pbas -10]]"
-		synth.speak(prefix+line[1:]+suffix)
+		avsynth.stopSpeakingAtBoundary_(AVSpeechBoundaryImmediate)
 	elif line[0] == u"r":
-		rate = line[1:]
+		rate = float(line[1:])/100
 	elif line[0] == u"v":
-		volume = str(int(line[1:]) / 100.0)
+		volume = int(line[1:]) / 100.0
+	elif line[0] == "V":
+		voice_idx = int(line[1:])
+		if voice_idx >= len(voices):
+			voice_idx = None
 
 def gotError(observer, err):
 	print("error:", err)
 	AppHelper.stopEventLoop()
 
-synth = None
+
 def main():
-	global synth
 	import sys
 	observer = FileObserver.alloc().initWithFileDescriptor_readCallback_errorCallback_(
 	sys.stdin.fileno(), gotLine, gotError)
-	synth = QueuedSynth.alloc().init_(None)
-
 	AppHelper.runConsoleEventLoop(installInterrupt=True)
 
 if __name__ == '__main__':
 	main()
+	

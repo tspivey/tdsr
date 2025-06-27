@@ -1,7 +1,7 @@
 # TDSR
 This is a console-based screen reader.
-It has been tested under macOS and Linux.
-It might also run on FreeBSD and other \*nix systems, but this hasn't been tested.
+It has been tested under macOS, Linux and FreeBSD.
+It might also run on other \*nix systems, but this hasn't been tested.
 
 ## What works
 * Reading output
@@ -52,6 +52,7 @@ Once in the config menu, you can use:
 * p - toggle symbol processing.
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
+* s - Toggle repeated symbols
 * Enter - exit, saving the configuration.
 
 ## Symbols
@@ -63,6 +64,74 @@ The format is:
 character code = name
 ```
 Because of how the config system works, it's best to do this with one TDSR open, then exit and re-launch to see the changes.
+
+## Plugins
+Custom key binds and handlers can be added via the plugins and commands section of the config files
+and a python module in the plugins directory that exports the following method signature:
+
+```python
+# Name: parse_output
+# Parameters: an array of strings (the lines from the terminal)
+# Returns: an array of strings (the things to speak)
+def parse_output(lines):
+    return ["a list of things to say"]
+```
+
+### Config file
+In ~/.tdsr.cfg you add to the plugins and commands section to modify the shortcut and terminal command that has been run
+
+Required: [plugins] The plugin section maps to a letter you press with alt to trigger the plugin.
+
+Optional: [commands] The command section is a regex of the command you ran previous to triggering the plugin (this minimizes processing time)
+
+Optional: A regex to indicate the start of your prompt line in your terminal
+
+#### Example
+
+To add a shortcut for alt d to trigger a plugin called my_plugin add the following under [plugins]
+
+```
+my_plugin = d
+```
+If you have sub folders, separate them with a dot e.g. for plugins/me/my_plugin
+
+```
+me.my_plugin = d
+```
+
+To specify a command of `echo "hi"` (which makes parsing slightly more efficient) add the following under [commands]
+```
+my_plugin = echo "hi"
+```
+Use dots for sub folders, like the plugin config. You can use a regular expression to make it more flexible, e.g. to
+specify a command of `echo "hi"` or `echo "bye"`
+
+```
+my_plugin = echo "(hi|bye)"
+```
+
+The default prompt is match anything, if you use zsh you can use the following regular expression under [speech]:
+
+```
+prompt = ^➜\s{2}.+✗?
+```
+
+#### Errors
+
+If you hear "error loading plugin" followed by an error, you can launch tdsr in debug mode
+
+```commandline
+~/tdsr --debug
+```
+
+And search the logs for "Error loading plugin" to see more details
+
+## Repeating symbols
+Symbols you would like condensed down to "42 =" instead of "= = = =" you can specify under the speech section
+
+```
+repeated_symbols_values = -_=! 
+```
 
 ## License
 Copyright (C) 2016, 2017  Tyler Spivey
