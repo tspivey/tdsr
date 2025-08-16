@@ -287,7 +287,7 @@ class Synth:
 		if isinstance(self.speech_server, Traversable):
 			# Open embedded resources
 			with as_file(self.speech_server) as speech_server_path:
-				self.pipe = subprocess.Popen(speech_server_path, stdin=subprocess.PIPE)
+				self.pipe = subprocess.Popen([sys.executable, speech_server_path], stdin=subprocess.PIPE)
 		else:
 			self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
 
