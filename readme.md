@@ -19,15 +19,17 @@ Compatibility is not guaranteed between versions.
 
 ## Installation on macOS
 1. Install Python 3. If using [Homebrew](http://brew.sh/), `brew install python3`.
-1. Install TDSR from the repository using pip.
-`pip install git+https://github.com/tspivey/tdsr.git --user`
-1. Run:
-`tdsr`
-and it should start speaking.
+1. Install uv: `brew install uv`.
+
+If you have this repository cloned, you can type `uv run tdsr` and it will run.
+Alternatively, you can install TDSR from the repository using uv.
+`uv tool install git+https://github.com/tspivey/tdsr.git --user`
+
+After that, running `tdsr` will start it.
 
 ## Installation on Linux
 
-1. Install Python 3 and Speech Dispatcher.  They should be available from your package manager.
+1. Install Python 3, uv and Speech Dispatcher.  They should be available from your package manager.
 You may also need to install Speech Dispatcher's Python bindings, if they were packaged separately by your distro.
 1. Follow the rest of the instructions for Mac OS X, starting with "Install TDSR".
 
