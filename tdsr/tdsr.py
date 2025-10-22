@@ -616,6 +616,7 @@ class MyScreen(pyte.Screen):
 		super(MyScreen, self).draw(text)
 		if add_to_buffer and not state.silence and not state.tempsilence:
 			speech_buffer.write(text)
+			state.last_drawn = text
 			state.last_drawn_x = screen.cursor.x
 			state.last_drawn_y = screen.cursor.y
 
@@ -671,6 +672,10 @@ class MyScreen(pyte.Screen):
 			return
 		return super().select_graphic_rendition(*attrs)
 
+	def cursor_up(self, count=None):
+		super().cursor_up(count=count)
+		speech_buffer.write(' ')
+
 	def scroll_down(self,	count):
 		if count == 0:
 			count = 1
@@ -690,6 +695,22 @@ class MyScreen(pyte.Screen):
 		for i in range(count):
 			self.index()
 		self.cursor.y = y
+
+	def cursor_position(self, line=None, column=None):
+		if  speech_buffer.tell() > 0 and line == state.last_drawn_y and column == state.last_drawn_x + 1 and ord(state.last_drawn) > 127:
+			pos = speech_buffer.tell()
+			speech_buffer.seek(speech_buffer.tell() - 1)
+			c = speech_buffer.read(1)
+			if c == ' ':
+				speech_buffer.truncate()
+				speech_buffer.seek(speech_buffer.tell() - 1)
+		if column and speech_buffer.tell() > 0 and line > state.last_drawn_y and column == 1:
+			speech_buffer.write(' ')
+		super().cursor_position(line, column)
+
+	def cursor_to_line(self, line=None):
+		super().cursor_to_line(line)
+		speech_buffer.write(' ')
 
 def sb():
 	data = speech_buffer.getvalue()
