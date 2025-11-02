@@ -11,8 +11,7 @@ import struct
 import termios
 import codecs
 import pyte
-from importlib.abc import Traversable
-from importlib.resources import as_file, files
+from importlib.resources import files
 from wcwidth import wcwidth
 from io import StringIO, SEEK_END
 import subprocess
@@ -284,12 +283,7 @@ class Synth:
 		self.voice_idx = None
 
 	def start(self):
-		if isinstance(self.speech_server, Traversable):
-			# Open embedded resources
-			with as_file(self.speech_server) as speech_server_path:
-				self.pipe = subprocess.Popen([sys.executable, speech_server_path], stdin=subprocess.PIPE)
-		else:
-			self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
+		self.pipe = subprocess.Popen(self.speech_server, stdin=subprocess.PIPE)
 
 		if self.rate is not None:
 			self.set_rate(self.rate)
