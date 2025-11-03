@@ -333,7 +333,7 @@ def main(term_params):
 	args = parser.parse_args()
 	if args.speech_server is None:
 		if platform.system() == 'Darwin':
-			speech_server = files(tdsr.backend).joinpath('mac.py')
+			speech_server = [sys.executable, files(tdsr.backend).joinpath('mac.py')]
 		else:
 			# Works on Linux, hopefully other places too:
 			speech_server = files(tdsr.backend).joinpath('speechdispatcher.py')
