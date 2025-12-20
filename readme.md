@@ -31,9 +31,10 @@ If you want to develop tdsr or make changes to it, clone the repository and inst
 
 ## Installation on Linux
 
-1. Install Python 3, uv and Speech Dispatcher.  They should be available from your package manager.
-You may also need to install Speech Dispatcher's Python bindings, if they were packaged separately by your distro.
-1. Follow the rest of the instructions for Mac OS X, starting with "Install TDSR".
+These instructions assume you are using speech-dispatcher. The Python bindings aren't available via uv.
+1. Install python3 and the speech dispatcher bindings. These might be in a package called `python3-speechd`, or included in speech-dispatcher.
+1. Install `pyte` (`python3-pyte` on Debian).
+1. Run `bin/tdsr`.
 
 ## Terminal setup
 Open Terminal preferences, under Profiles check Use Option as Meta key.
