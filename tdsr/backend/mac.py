@@ -3,7 +3,7 @@
 #See the license in COPYING.txt
 from Foundation import (
 	NSObject, NSFileHandle, NSNotificationCenter,
-	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem, NSFileHandleError,
+	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem,
 )
 from AVFoundation import AVSpeechSynthesizer, AVSpeechUtterance, AVSpeechBoundaryImmediate, AVSpeechSynthesisVoice
 from PyObjCTools import AppHelper
@@ -36,7 +36,7 @@ class FileObserver(NSObject):
 		newData = ui.objectForKey_(NSFileHandleNotificationDataItem)
 		if newData is None:
 			if self.errorCallback is not None:
-				self.errorCallback(self, ui.objectForKey_(NSFileHandleError))
+				self.errorCallback(self)
 			self.close()
 		else:
 			self.fileHandle.readInBackgroundAndNotify()
@@ -96,8 +96,8 @@ def handle_line(line):
 		if voice_idx >= len(voices):
 			voice_idx = None
 
-def gotError(observer, err):
-	print("error:", err)
+def gotError(observer):
+	print("error:")
 	AppHelper.stopEventLoop()
 
 
