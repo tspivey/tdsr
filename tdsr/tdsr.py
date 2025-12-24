@@ -26,7 +26,6 @@ import signal
 import copy
 import tdsr
 import tdsr.backend
-import re
 
 logger = logging.getLogger("tdsr")
 logger.addHandler(logging.NullHandler())
@@ -242,7 +241,7 @@ class CopyHandler(KeyHandler):
 	def copy_line(self):
 		try:
 			copy_text(state.revy, 0, state.revy, screen.columns-1)
-		except:
+		except Exception:
 			say("Failed")
 		else:
 			say("line")
@@ -251,7 +250,7 @@ class CopyHandler(KeyHandler):
 	def copy_screen(self):
 		try:
 			copy_text(0, 0, screen.lines - 1, screen.columns - 1)
-		except:
+		except Exception:
 			say("Failed")
 		else:
 			say("screen")
@@ -464,7 +463,6 @@ def handle_backspace():
 	return KeyHandler.PASSTHROUGH
 
 def handle_delete():
-	x = screen.cursor.x
 	say_character(screen.buffer[screen.cursor.y][screen.cursor.x].data)
 	return KeyHandler.PASSTHROUGH
 
@@ -697,7 +695,6 @@ class MyScreen(pyte.Screen):
 
 	def cursor_position(self, line=None, column=None):
 		if  speech_buffer.tell() > 0 and line == state.last_drawn_y and column == state.last_drawn_x + 1 and ord(state.last_drawn) > 127:
-			pos = speech_buffer.tell()
 			speech_buffer.seek(speech_buffer.tell() - 1)
 			c = speech_buffer.read(1)
 			if c == ' ':
@@ -847,7 +844,7 @@ def sayword(spell=False):
 	state.revx, state.revy = revx, revy
 
 def nextword():
-	revx, revy = state.revx, state.revy
+	revx, _revy = state.revx, state.revy
 	m = screen.columns - 1
 	#Move over any existing word we might be in the middle of
 	while state.revx < m and get_char() != ' ':
@@ -875,7 +872,7 @@ def handle_clipboard():
 	end_x, end_y = state.revx, state.revy
 	try:
 		copy_text(state.copy_y, state.copy_x, end_y, end_x)
-	except:
+	except Exception:
 		say("Failed")
 	else:
 		say("copied")
@@ -886,7 +883,6 @@ def copy_text(start_y, start_x, end_y, end_x):
 		start_x, end_x = end_x, start_x
 	if start_y > end_y:
 		start_y, end_y = end_y, start_y
-	display = screen.display
 	buf = []
 	start = start_x
 	for y in range(start_y, end_y + 1):
