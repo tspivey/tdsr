@@ -3,12 +3,10 @@
 #See the license in COPYING.txt
 from Foundation import (
 	NSObject, NSFileHandle, NSNotificationCenter,
-	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem,
+	NSFileHandleReadCompletionNotification, NSFileHandleNotificationDataItem, NSFileHandleError,
 )
 from AVFoundation import AVSpeechSynthesizer, AVSpeechUtterance, AVSpeechBoundaryImmediate, AVSpeechSynthesisVoice
 from PyObjCTools import AppHelper
-from objc import python_method
-import threading
 
 rate = None
 volume = None
@@ -62,17 +60,13 @@ class FileObserver(NSObject):
 		# matter, but it's worth pointing out.
 		self.close()
 
-def prompt():
-	sys.stdout.write("write something: ")
-	sys.stdout.flush()
-
 def gotLine(observer, line):
 	if not line:
 		AppHelper.stopEventLoop()
 		return
 	line = line.strip(b'\n')
-	for l in line.split(b'\n'):
-		handle_line(l)
+	for ln in line.split(b'\n'):
+		handle_line(ln)
 
 
 
@@ -80,9 +74,9 @@ def handle_line(line):
 	global rate, volume, voice_idx
 	line = line.decode('utf-8', 'replace')
 	if line[0] == u"s" or line[0] == "l":
-		l = line[1:].replace('[[', ' ')
-		l = l.replace(u'\u23ce', ' ')
-		u = AVSpeechUtterance.alloc().initWithString_(l)
+		ln = line[1:].replace('[[', ' ')
+		ln = ln.replace(u'\u23ce', ' ')
+		u = AVSpeechUtterance.alloc().initWithString_(ln)
 		u.setPrefersAssistiveTechnologySettings_(True)
 		if rate is not None:
 			u.setRate_(rate)
@@ -115,4 +109,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-	
