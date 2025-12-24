@@ -316,7 +316,7 @@ class Synth:
 	def set_voice_idx(self, voice_idx):
 		self.voice_idx = voice_idx
 		self.send('V%d\n' % voice_idx)
-		
+
 	def close(self):
 		self.pipe.stdin.close()
 		self.pipe.wait()
@@ -631,6 +631,11 @@ class MyScreen(pyte.Screen):
 		if self.cursor.x > 0 and speech_buffer.tell() > 0:
 			speech_buffer.seek(speech_buffer.tell() - 1)
 		super(MyScreen, self).backspace()
+
+	def report_device_status(self, *args, **kwargs):
+		if "private" in kwargs:
+			del kwargs["private"]
+		return super().report_device_status(*args, **kwargs)
 
 	def reset_mode(self, *modes, **kwargs):
 		if 3 in modes:
