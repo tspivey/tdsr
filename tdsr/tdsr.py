@@ -695,7 +695,6 @@ class MyScreen(pyte.Screen):
 
 	def cursor_position(self, line=None, column=None):
 		if  speech_buffer.tell() > 0 and line == state.last_drawn_y and column == state.last_drawn_x + 1 and ord(state.last_drawn) > 127:
-			speech_buffer.tell()
 			speech_buffer.seek(speech_buffer.tell() - 1)
 			c = speech_buffer.read(1)
 			if c == ' ':
