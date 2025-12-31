@@ -420,16 +420,28 @@ def read_buffer_scheduled():
 	state.delaying_output = False
 	sb()
 
+def strip_osc_sequences(data):
+    """Remove OSC (Operating System Command) sequences including OSC 133"""
+    # OSC sequences: ESC ] ... (ST or BEL)
+    # ST is ESC \ and BEL is \x07
+    # OSC 133 specifically: ESC ] 133 ; A/B/C/D [optional args] (ST or BEL)
+    data = re.sub(rb'\x1b\]133;[^\x07\x1b]*(?:\x07|\x1b\\)', b'', data)
+    # More general OSC filtering
+    data = re.sub(rb'\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)', b'', data)
+    return data
+
 def read_all(fd):
-	bytes = os.read(fd, 4096)
-	if bytes == b'':
-		raise EOFError
-	while has_more(fd):
-		data = os.read(fd, 4096)
-		if data == b'':
-			raise EOFError
-		bytes += data
-	return bytes
+    bytes = os.read(fd, 4096)
+    if bytes == b'':
+        raise EOFError
+    # Strip OSC sequences before processing
+    bytes = strip_osc_sequences(bytes)
+    while has_more(fd):
+        data = os.read(fd, 4096)
+        if data == b'':
+            raise EOFError
+        bytes += strip_osc_sequences(data)
+    return bytes
 
 def handle_child(args):
 	if args.program:
