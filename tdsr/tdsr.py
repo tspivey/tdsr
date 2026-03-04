@@ -447,6 +447,10 @@ def process_input(bytes, fd):
 	if re.match(br'\033\[\d+;\d+R', bytes):
 		os.write(fd, bytes)
 		return
+	# Ignore OSC and DA
+	if re.search(br'\x1b\][^\x07\x1b]*(\x07|\x1b\\)', bytes) or re.search(br'\x1b\[\?[0-9;]+c', bytes):
+		os.write(fd, bytes)
+		return
 	lastkey = ""
 	silence()
 	state.delayed_functions = []
