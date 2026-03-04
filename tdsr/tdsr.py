@@ -585,7 +585,7 @@ class MyScreen(pyte.Screen):
 		self.saved_cursor = None
 		self.saved_buffer = None
 
-	def set_margins(self, top=None, bottom=None):
+	def set_margins(self, top=None, bottom=None, private=None):
 		if top == 0 and bottom is None:
 			top = None
 		super().set_margins(top=top, bottom=bottom)
