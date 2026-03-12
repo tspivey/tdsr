@@ -7,6 +7,7 @@ from Foundation import (
 )
 from AVFoundation import AVSpeechSynthesizer, AVSpeechUtterance, AVSpeechBoundaryImmediate, AVSpeechSynthesisVoice
 from PyObjCTools import AppHelper
+import html
 
 rate = None
 volume = None
@@ -76,6 +77,8 @@ def handle_line(line):
 	if line[0] == u"s" or line[0] == "l":
 		ln = line[1:].replace('[[', ' ')
 		ln = ln.replace(u'\u23ce', ' ')
+		# macOS 26 doesn't process text in <>, even though we're not telling it to speak SSML.
+		ln = html.escape(ln, False)
 		u = AVSpeechUtterance.alloc().initWithString_(ln)
 		u.setPrefersAssistiveTechnologySettings_(True)
 		if rate is not None:
