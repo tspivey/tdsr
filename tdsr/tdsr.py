@@ -11,6 +11,7 @@ import struct
 import termios
 import codecs
 import pyte
+from importlib.resources.abc import Traversable
 from importlib.resources import as_file, files
 from wcwidth import wcwidth
 from io import StringIO, SEEK_END
