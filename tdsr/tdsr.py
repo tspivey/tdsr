@@ -3,6 +3,7 @@
 #Copyright (C) 2016, 2017  Tyler Spivey
 #See the license in COPYING.txt
 import importlib
+import collections
 import sys
 import os
 import select
@@ -34,6 +35,10 @@ DEFAULT_CONFIG = files(tdsr).joinpath('tdsr.cfg.dist')
 CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 REPEAT_KEY_TIMEOUT = 0.5
+DEFAULT_SCROLLBACK_LINES = 10000
+# Alternate-screen modes (CSI ? Ph / Pl): entering any of these swaps to an
+# alternate buffer, so the app's internal scrolling must not enter scrollback.
+ALT_SCREEN_MODES = frozenset({47, 1047, 1049})
 PHONETICS = {x[0]: x for x in [
 		'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
 		'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
@@ -46,6 +51,7 @@ class State:
 	def __init__(self):
 		self.revy = 0
 		self.revx = 0
+		self.scrollback = collections.deque(maxlen=DEFAULT_SCROLLBACK_LINES)
 		self.delayed_functions = []
 		self.silence = False
 		self.tempsilence = False
@@ -124,6 +130,7 @@ class ConfigHandler(KeyHandler):
 			b'c': self.set_cursor_tracking,
 			b'l': self.set_line_pause,
 			b's': self.set_repeated_symbols,
+			b'b': self.set_scrollback,
 		}
 		super().__init__(self.keymap)
 
@@ -222,6 +229,28 @@ class ConfigHandler(KeyHandler):
 		val/=1000
 		CURSOR_TIMEOUT = val
 		state.config['speech']['cursor_delay'] = str(val)
+		state.save_config()
+		say("Confirmed")
+
+	def set_scrollback(self):
+		say("Scrollback lines")
+		state.key_handlers.append(BufferHandler(on_accept=self.set_scrollback2))
+
+	def set_scrollback2(self, val):
+		try:
+			val = int(val)
+		except ValueError:
+			say("Invalid value")
+			return
+		# maxlen=0 keeps no history and a negative maxlen raises, so require
+		# at least one line of scrollback.
+		if val < 1:
+			say("Invalid value")
+			return
+		# maxlen is read-only; rebuild to resize, preserving existing lines
+		# (oldest are dropped if the new size is smaller).
+		state.scrollback = collections.deque(state.scrollback, maxlen=val)
+		state.config['speech']['scrollback_lines'] = str(val)
 		state.save_config()
 		say("Confirmed")
 
@@ -363,6 +392,16 @@ def main(term_params):
 		synth.set_voice_idx(int(state.config['speech']['voice_idx']))
 	if 'cursor_delay' in state.config['speech']:
 		CURSOR_TIMEOUT = float(state.config['speech']['cursor_delay'])
+	if 'scrollback_lines' in state.config['speech']:
+		try:
+			scrollback_lines = int(state.config['speech']['scrollback_lines'])
+		except ValueError:
+			scrollback_lines = DEFAULT_SCROLLBACK_LINES
+		# A non-positive maxlen would disable history (0) or crash the deque
+		# (<0), so fall back to the default for any invalid/out-of-range value.
+		if scrollback_lines < 1:
+			scrollback_lines = DEFAULT_SCROLLBACK_LINES
+		state.scrollback = collections.deque(state.scrollback, maxlen=scrollback_lines)
 	pid, fd = os.forkpty()
 	if pid == 0:
 		handle_child(args)
@@ -408,7 +447,7 @@ def main(term_params):
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
 			stream.feed(decoded_bytes)
-			if state.config.getboolean('speech', 'cursor_tracking') and (screen.cursor.x != x or screen.cursor.y != y):
+			if state.config.getboolean('speech', 'cursor_tracking') and state.revy >= 0 and (screen.cursor.x != x or screen.cursor.y != y):
 				state.revx, state.revy = screen.cursor.x, screen.cursor.y
 			if not state.silence and not state.tempsilence:
 				if speech_buffer.tell() > 0 and not state.delaying_output:
@@ -500,8 +539,25 @@ def handle_plugin(plugin_name):
 
 	return handle
 
+def min_revy():
+	"""Lowest value the review row may take: the oldest retained history line,
+	or 0 when there is no scrollback (i.e. the top of the visible screen)."""
+	return -len(state.scrollback)
+
+def review_line(y):
+	"""Return the line dict for review row y.
+
+	y >= 0 indexes the live visible screen; y < 0 indexes scrollback history,
+	where -1 is the line that most recently scrolled off the top (just above
+	the visible area) and min_revy() is the oldest retained line. The clamp
+	guarantees we never index past the deque and crash the reader.
+	"""
+	if y < 0:
+		return state.scrollback[max(y, min_revy())]
+	return screen.buffer[y]
+
 def sayline(y):
-	line = "".join(screen.buffer[y][x].data for x in range(screen.columns)).strip()
+	line = "".join(review_line(y)[x].data for x in range(screen.columns)).strip()
 	if line == u'':
 		line = u'blank'
 
@@ -526,9 +582,9 @@ def replace_duplicate_characters_with_count(line):
 
 def prevline():
 	state.revy -= 1
-	if state.revy < 0:
-		say("top")
-		state.revy = 0
+	if state.revy < min_revy():
+		say("top of history" if state.scrollback else "top")
+		state.revy = min_revy()
 	sayline(state.revy)
 
 def nextline():
@@ -547,7 +603,7 @@ def prevchar():
 	saychar(state.revy, state.revx)
 
 def saychar(y, x, phonetically=False):
-	char = screen.buffer[y][x].data
+	char = review_line(y)[x].data
 	lchar = char.lower()
 	if phonetically and lchar in PHONETICS:
 		synth.send('s%s\n' % PHONETICS[lchar])
@@ -555,7 +611,7 @@ def saychar(y, x, phonetically=False):
 		say_character(char)
 
 def nextchar():
-	state.revx += wcwidth(screen.buffer[state.revy][state.revx].data)
+	state.revx += wcwidth(review_line(state.revy)[state.revx].data)
 	if state.revx > screen.columns - 1:
 		say("right")
 		state.revx = screen.columns - 1
@@ -563,7 +619,7 @@ def nextchar():
 	saychar(state.revy, state.revx)
 
 def skip_to_previous_char():
-	while screen.buffer[state.revy][state.revx].data == '':
+	while review_line(state.revy)[state.revx].data == '':
 		state.revx -= 1
 
 def topOfScreen():
@@ -572,6 +628,23 @@ def topOfScreen():
 
 def bottomOfScreen():
 	state.revy = screen.lines - 1
+	sayline(state.revy)
+
+def topOfHistory():
+	# Jump to the oldest retained line (start of the session's scrollback).
+	# With no history min_revy() is 0, i.e. the top of the visible screen, so
+	# the behaviour degrades gracefully.
+	state.revy = min_revy()
+	state.revx = 0
+	say("top of history" if state.scrollback else "top of screen")
+	sayline(state.revy)
+
+def bottomOfHistory():
+	# Symmetric counterpart of topOfHistory: jump back to the live screen
+	# bottom (newest content) and reset the column, mirroring topOfHistory.
+	state.revy = screen.lines - 1
+	state.revx = 0
+	say("bottom of screen")
 	sayline(state.revy)
 
 def startOfLine():
@@ -585,9 +658,30 @@ def endOfLine():
 class MyScreen(pyte.Screen):
 
 	def __init__(self, *args, **kwargs):
+		self.in_alt_screen = False
 		super().__init__(*args, **kwargs)
 		self.saved_cursor = None
 		self.saved_buffer = None
+
+	def reset(self):
+		# Called by pyte during construction and on RIS (ESC c / `tput reset`).
+		# RIS clears the terminal's scrollback on a real terminal, so mirror that.
+		super().reset()
+		self.in_alt_screen = False
+		state.scrollback.clear()
+
+	def index(self):
+		# pyte drops the top line of the scrolling region here when the cursor is
+		# at the bottom margin. When that region starts at row 0 -- the normal case,
+		# including an explicit full-screen region set via CSI r -- the dropped line
+		# is real scrollback, so capture it first. linefeed() and scroll_up() both
+		# route through index(). Alt-screen apps (vim/less/htop) and top-pinned
+		# status regions (top margin > 0) are excluded. Lines are captured at the
+		# current width and not re-flowed on resize, so old history may read padded.
+		top, bottom = self.margins or pyte.screens.Margins(0, self.lines - 1)
+		if top == 0 and not self.in_alt_screen and self.cursor.y == bottom:
+			state.scrollback.append(copy.copy(self.buffer[0]))
+		super().index()
 
 	def set_margins(self, top=None, bottom=None, private=None):
 		if top == 0 and bottom is None:
@@ -643,19 +737,29 @@ class MyScreen(pyte.Screen):
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
-		if 1049 in modes and self.saved_cursor is not None:
+		if 1048 in modes and self.saved_cursor is not None:
+			# DECRC-style cursor restore (no buffer swap).
 			self.cursor = self.saved_cursor
-			self.buffer = self.saved_buffer
 			self.saved_cursor = None
-			self.saved_buffer = None
-			self.dirty.update(range(self.lines))
+		if not ALT_SCREEN_MODES.isdisjoint(modes):
+			self.in_alt_screen = False
+			if self.saved_cursor is not None:
+				self.cursor = self.saved_cursor
+				self.buffer = self.saved_buffer
+				self.saved_cursor = None
+				self.saved_buffer = None
+				self.dirty.update(range(self.lines))
 		super().reset_mode(*modes, **kwargs)
 
 	def set_mode(self, *modes, **kwargs):
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
-		if 1049 in modes:
+		if 1048 in modes:
+			# DECSC-style cursor save (no buffer swap).
+			self.saved_cursor = copy.copy(self.cursor)
+		if not ALT_SCREEN_MODES.isdisjoint(modes):
+			self.in_alt_screen = True
 			self.saved_cursor = copy.copy(self.cursor)
 			self.saved_buffer = copy.deepcopy(self.buffer)
 			self.dirty.update(range(self.lines))
@@ -665,6 +769,9 @@ class MyScreen(pyte.Screen):
 
 	def erase_in_display(self, how=0, private=False):
 		if how == 3:
+			# xterm ED3 ("erase saved lines"), emitted by `clear`. Drop our
+			# scrollback too, matching how a real terminal clears its history.
+			state.scrollback.clear()
 			return
 		super().erase_in_display(how, private=private)
 
@@ -790,11 +897,11 @@ def copy_mode():
 	state.key_handlers.append(CopyHandler())
 
 def get_char():
-	return screen.buffer[state.revy][state.revx].data
+	return review_line(state.revy)[state.revx].data
 
 def move_prevchar():
 	if state.revx == 0:
-		if state.revy == 0:
+		if state.revy <= min_revy():
 			return ''
 		state.revy -= 1
 		state.revx = screen.columns - 1
@@ -822,15 +929,14 @@ def prevword():
 	while state.revx > 0 and get_char() == ' ':
 		move_prevchar()
 	#Move to the beginning of the word we're now on
-	while state.revx > 0 and get_char() != ' ' and screen.buffer[state.revy][state.revx - 1].data != ' ':
+	while state.revx > 0 and get_char() != ' ' and review_line(state.revy)[state.revx - 1].data != ' ':
 		move_prevchar()
 	sayword()
 
 def sayword(spell=False):
 	word = ""
 	revx, revy = state.revx, state.revy
-	b = screen.buffer
-	while state.revx > 0 and get_char() != ' ' and b[state.revy][state.revx - 1].data != ' ':
+	while state.revx > 0 and get_char() != ' ' and review_line(state.revy)[state.revx - 1].data != ' ':
 		move_prevchar()
 	if state.revx == 0 and get_char() == ' ':
 		say("space")
@@ -883,25 +989,19 @@ def handle_clipboard():
 	state.copy_x = None
 
 def copy_text(start_y, start_x, end_y, end_x):
-	if start_x > end_x:
-		start_x, end_x = end_x, start_x
 	if start_y > end_y:
-		start_y, end_y = end_y, start_y
+		start_y, start_x, end_y, end_x = end_y, end_x, start_y, start_x
 	buf = []
-	start = start_x
 	for y in range(start_y, end_y + 1):
-		if y < end_y:
-			end = screen.columns - 1
+		# A selection within a single row is character-precise; a selection that
+		# spans rows copies whole lines (so e.g. lines 1-10 come out in full,
+		# regardless of the column the review cursor happened to land on).
+		if start_y == end_y:
+			lo, hi = min(start_x, end_x), max(start_x, end_x)
 		else:
-			end = end_x
-		if y > start_y:
-			start = 0
-		chars = []
-		for x in range(start, end + 1):
-			chars.append(screen.buffer[y][x].data)
-		buf.append("".join(chars).rstrip())
-	buf = "\n".join(buf)
-	copy_to_clip(buf)
+			lo, hi = 0, screen.columns - 1
+		buf.append("".join(review_line(y)[x].data for x in range(lo, hi + 1)).rstrip())
+	copy_to_clip("\n".join(buf))
 
 def copy_to_clip(data):
 	data = data.encode('utf-8')
@@ -954,6 +1054,8 @@ keymap = {
 	b'\x1b.': nextchar,
 	b'\x1bU': topOfScreen,
 	b'\x1bO': bottomOfScreen,
+	b'\x1bt': topOfHistory,
+	b'\x1bb': bottomOfHistory,
 	b'\x1bM': startOfLine,
 	b'\x1b>': endOfLine,
 	# For the Hungarian keyboard layout

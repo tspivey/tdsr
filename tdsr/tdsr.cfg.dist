@@ -1,6 +1,8 @@
 [speech]
 process_symbols = False
 prompt = .*
+# Number of lines of scrolled-off history to remember for review (minimum 1).
+scrollback_lines = 10000
 
 [commands]
 
