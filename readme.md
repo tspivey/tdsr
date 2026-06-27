@@ -40,7 +40,10 @@ These instructions assume you are using speech-dispatcher. The Python bindings a
 Open Terminal preferences, under Profiles check Use Option as Meta key.
 ## Keys
 (alt refers to the meta key.)
-* alt u, i, o - read previous, current, next line
+* alt u, i, o - read previous, current, next line. Reading the previous line past the top of the screen continues up into scrollback history.
+* alt t - jump to the start of the session's scrollback history.
+* alt b - jump back to the bottom of the live screen (newest content).
+* alt shift u, alt shift o - top, bottom of the visible screen.
 * alt j, k, l - read previous, current, next word
 * alt m, comma, dot - read previous, current, next character
 * alt k twice - spell current word
@@ -58,7 +61,21 @@ Once in the config menu, you can use:
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
 * s - Toggle repeated symbols
+* b - set scrollback buffer size (number of remembered history lines, minimum 1).
 * Enter - exit, saving the configuration.
+
+## Scrollback
+TDSR remembers lines that scroll off the top of the screen so you can review them later.
+Move the review cursor up past the top line with `alt u` to read into the history, or press
+`alt t` to jump straight to the start of the session's output. Line, word, character review
+and copy all work on history lines exactly as they do on the visible screen, and `alt b`
+returns you to the bottom of the live screen.
+
+Full-screen programs that use the alternate screen (such as `vim`, `less` and `htop`) are not
+recorded, and running `clear` (or `tput reset`) discards the history, matching a normal terminal.
+
+The number of remembered lines is set by `scrollback_lines` under the `[speech]` section of
+`~/.tdsr.cfg` (default 10000).
 
 ## Symbols
 Symbols can be added in the configuration file (`~/.tdsr.cfg`),
