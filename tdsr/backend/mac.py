@@ -74,9 +74,11 @@ def gotLine(observer, line):
 def handle_line(line):
 	global rate, volume, voice_idx
 	line = line.decode('utf-8', 'replace')
-	if line[0] == u"s" or line[0] == "l":
+	if line[0] == u"s" or line[0] == "l" or line[0] == "L":
 		ln = line[1:].replace('[[', ' ')
 		ln = ln.replace(u'\u23ce', ' ')
+		if line[0] == "L":
+			ln = "cap " + ln
 		# macOS 26 doesn't process text in <>, even though we're not telling it to speak SSML.
 		ln = html.escape(ln, False)
 		u = AVSpeechUtterance.alloc().initWithString_(ln)
