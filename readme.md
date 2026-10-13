@@ -45,6 +45,10 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt m, comma, dot - read previous, current, next character
 * alt k twice - spell current word
 * alt comma twice - say current character phonetically
+* alt shift u, alt shift o - read top, bottom line of the screen
+* alt shift m - move to start of line and read the character
+* alt shift dot (alt >) - move to end of line and read the character
+* alt x - stop speech.
 * alt c - config.
 * alt q - quiet mode on/off. When on, text is not automatically read.
 * alt r - start/end selection.
@@ -54,11 +58,20 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 Once in the config menu, you can use:
 * r - set rate.
 * v - set volume (value between 0 and 100).
+* V - set voice index (macOS only).
 * p - toggle symbol processing.
+* e - toggle character echo.
+* c - toggle cursor tracking. When on, the review cursor follows the terminal cursor.
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
 * s - Toggle repeated symbols
 * Enter - exit, saving the configuration.
+
+## Command line
+`tdsr [-s command] [--debug] [program ...]`
+* -s, --speech-server - speech server command to run instead of the built-in one.
+* --debug - write a debug log to `tdsr.log` in the current directory.
+* program - program to run instead of your shell. It must be a full path, e.g. `tdsr /usr/bin/vim file.txt`.
 
 ## Symbols
 Symbols can be added in the configuration file (`~/.tdsr.cfg`),
