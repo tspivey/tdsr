@@ -739,6 +739,8 @@ def say_character(ch):
 	key = str(ord(ch))
 	if key in state.config['symbols']:
 		synth.send('s%s\n' % state.config['symbols'][key])
+	elif ch.isupper():
+		synth.send('L%s\n' % ch)
 	else:
 		synth.send('l%s\n' % ch)
 

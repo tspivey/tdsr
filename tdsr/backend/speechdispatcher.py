@@ -20,9 +20,9 @@ def main():
 		if line[0] == u"s":
 			synth.speak(line[1:])
 		elif line[0] == u"l":
-			# TODO capitals.  Do pitchrise here, or just
-			# let it be Speech Dispatcher's problem?
 			synth.char(line[1:])
+		elif line[0] == u"L":
+			synth.speak("cap " + line[1:])
 		elif line[0] == u"x":
 			synth.cancel()
 		elif line[0] == u"r":
