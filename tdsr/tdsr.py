@@ -270,6 +270,10 @@ class BufferHandler(KeyHandler):
 		if data == b'\r' or data == b'\n':
 			self.on_accept(self.buffer)
 			return KeyHandler.REMOVE
+		elif data == b'\x7f' or data == b'\x08':
+			if self.buffer:
+				say_character(self.buffer[-1])
+				self.buffer = self.buffer[:-1]
 		else:
 			self.buffer += data.decode('utf-8')
 
