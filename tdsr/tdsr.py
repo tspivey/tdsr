@@ -421,7 +421,6 @@ def main(term_params):
 			except (EOFError, OSError):
 				sb()
 				synth.close()
-				os.write(1, FOCUS_REPORTING_OFF)
 				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
