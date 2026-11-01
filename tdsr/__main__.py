@@ -14,5 +14,5 @@ def main():
         termios.tcsetattr(0, termios.TCSADRAIN, old)
 
 
-if __name__ == "__main___":
+if __name__ == "__main__":
     main()
