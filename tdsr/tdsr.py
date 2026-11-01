@@ -128,7 +128,7 @@ class ConfigHandler(KeyHandler):
 		super().__init__(self.keymap)
 
 	def set_rate(self):
-		say("Rate")
+		say_prompt("Rate", state.config['speech'].get('rate'))
 		state.key_handlers.append(BufferHandler(on_accept=self.set_rate2))
 
 	def set_rate2(self, val):
@@ -143,7 +143,7 @@ class ConfigHandler(KeyHandler):
 		say("Confirmed")
 
 	def set_volume(self):
-		say("volume")
+		say_prompt("volume", state.config['speech'].get('volume'))
 		state.key_handlers.append(BufferHandler(on_accept=self.set_volume2))
 
 	def set_volume2(self, val):
@@ -158,7 +158,7 @@ class ConfigHandler(KeyHandler):
 		say("Confirmed")
 
 	def set_voice_idx(self):
-		say("voice index")
+		say_prompt("voice index", state.config['speech'].get('voice_idx'))
 		state.key_handlers.append(BufferHandler(on_accept=self.set_voice_idx2))
 
 	def set_voice_idx2(self, val):
@@ -209,7 +209,7 @@ class ConfigHandler(KeyHandler):
 		say("repeated symbols on" if current else "repeated symbols off")
 
 	def set_delay(self):
-		say("Cursor delay")
+		say_prompt("Cursor delay", round(CURSOR_TIMEOUT * 1000))
 		state.key_handlers.append(BufferHandler(on_accept=self.set_delay2))
 
 	def set_delay2(self, val):
@@ -729,6 +729,12 @@ def say(data, force_process_symbols=False):
 	if state.symbols_re is not None and (force_process_symbols or state.config.getboolean('speech', 'process_symbols', fallback=False)):
 		data = state.symbols_re.sub(replace_symbols, data)
 	synth.send("s" + data + "\n")
+
+def say_prompt(label, current):
+	if current is None:
+		say(label)
+	else:
+		say(f"{label}, currently {current}")
 
 def silence():
 	synth.send('x\n')
