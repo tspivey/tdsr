@@ -65,6 +65,7 @@ Once in the config menu, you can use:
 * d - set cursor delay (in MS). The default is 20.
 * l - Toggle pausing at newlines.
 * s - Toggle repeated symbols
+* f - toggle speech when the terminal window is not focused. When off, new output is not read while you are in another window, tab, or app. Your terminal must support focus reporting (Terminal.app, iTerm2, and most modern terminals do).
 * Enter - exit, saving the configuration.
 
 ## Command line

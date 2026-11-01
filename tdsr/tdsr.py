@@ -34,6 +34,13 @@ DEFAULT_CONFIG = files(tdsr).joinpath('tdsr.cfg.dist')
 CONFIG_FILE = os.path.expanduser('~/.tdsr.cfg')
 CURSOR_TIMEOUT = 0.02
 REPEAT_KEY_TIMEOUT = 0.5
+FOCUS_IN = b'\x1b[I'
+FOCUS_REPORTING_ON = b'\x1b[?1004h'
+FOCUS_REPORTING_OFF = b'\x1b[?1004l'
+FOCUS_MODE = b'1004'
+TERMINAL_RESET = b'\x1bc'
+FOCUS_EVENT_RE = re.compile(br'\x1b\[[IO]')
+PRIVATE_MODE_RE = re.compile(br'\x1b\[\?([\d;]+)([hl])')
 PHONETICS = {x[0]: x for x in [
 		'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
 		'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
@@ -52,7 +59,7 @@ class State:
 		self.key_handlers = []
 		self.config = configparser.ConfigParser()
 		self.config['speech'] = {'process_symbols': 'false', 'key_echo': True, 'cursor_tracking': True,
-		"line_pause": True, 'repeated_symbols': 'false', 'repeated_symbols_values': '-=!#'}
+		"line_pause": True, 'repeated_symbols': 'false', 'repeated_symbols_values': '-=!#', 'speak_when_unfocused': True}
 		self.config['symbols'] = {}
 		self.config['plugins'] = {}
 		self.symbols_Re = None
@@ -61,6 +68,8 @@ class State:
 		self.last_drawn_x = 0
 		self.last_drawn_y = 0
 		self.delaying_output = False
+		self.focused = True
+		self.child_wants_focus_events = False
 
 	def save_config(self):
 		with open(CONFIG_FILE, 'w') as fp:
@@ -124,6 +133,7 @@ class ConfigHandler(KeyHandler):
 			b'c': self.set_cursor_tracking,
 			b'l': self.set_line_pause,
 			b's': self.set_repeated_symbols,
+			b'f': self.set_speak_when_unfocused,
 		}
 		super().__init__(self.keymap)
 
@@ -207,6 +217,12 @@ class ConfigHandler(KeyHandler):
 		state.config['speech']['repeated_symbols'] = str(current)
 		state.save_config()
 		say("repeated symbols on" if current else "repeated symbols off")
+
+	def set_speak_when_unfocused(self):
+		current = not speak_when_unfocused()
+		state.config['speech']['speak_when_unfocused'] = str(current)
+		state.save_config()
+		say("Speak when not focused on" if current else "Speak when not focused off")
 
 	def set_delay(self):
 		say("Cursor delay")
@@ -383,6 +399,7 @@ def main(term_params):
 	resize_terminal(fd)
 	signal_pipe = os.pipe()
 	signal.signal(signal.SIGWINCH, handle_sigwinch)
+	os.write(1, FOCUS_REPORTING_ON)
 	say("tdsr, presented by Lighthouse of San Francisco")
 	while True:
 		r, w, e = select.select([sys.stdin, fd, signal_pipe[0]], [], [], time_until_next_delayed())
@@ -404,6 +421,7 @@ def main(term_params):
 			except (EOFError, OSError):
 				sb()
 				synth.close()
+				os.write(1, FOCUS_REPORTING_OFF)
 				sys.exit(0)
 			decoded_bytes = decoder.decode(bytes)
 			x, y = screen.cursor.x, screen.cursor.y
@@ -414,11 +432,37 @@ def main(term_params):
 				if speech_buffer.tell() > 0 and not state.delaying_output:
 					schedule(0.005, read_buffer_scheduled)
 			os.write(1, bytes)
+			if track_child_focus_mode(bytes):
+				os.write(1, FOCUS_REPORTING_ON)
 		run_scheduled()
 
 def read_buffer_scheduled():
 	state.delaying_output = False
 	sb()
+
+def track_child_focus_mode(bytes):
+	reporting_disabled = TERMINAL_RESET in bytes
+	if reporting_disabled:
+		state.child_wants_focus_events = False
+	for params, action in PRIVATE_MODE_RE.findall(bytes):
+		if FOCUS_MODE in params.split(b';'):
+			state.child_wants_focus_events = action == b'h'
+			reporting_disabled = action == b'l'
+	return reporting_disabled
+
+def handle_focus_events(bytes, fd):
+	events = FOCUS_EVENT_RE.findall(bytes)
+	if not events:
+		return bytes
+	state.focused = events[-1] == FOCUS_IN
+	if not state.focused and not speak_when_unfocused():
+		silence()
+	if state.child_wants_focus_events:
+		os.write(fd, b''.join(events))
+	return FOCUS_EVENT_RE.sub(b'', bytes)
+
+def speak_when_unfocused():
+	return state.config.getboolean('speech', 'speak_when_unfocused', fallback=True)
 
 def read_all(fd):
 	bytes = os.read(fd, 4096)
@@ -443,6 +487,9 @@ in_escape = False
 escsec = ""
 def process_input(bytes, fd):
 	global lastkey
+	bytes = handle_focus_events(bytes, fd)
+	if not bytes:
+		return
 	# Busybox ash asks the terminal to send the cursor position, ignore it
 	if re.match(br'\033\[\d+;\d+R', bytes):
 		os.write(fd, bytes)
@@ -717,6 +764,8 @@ def sb():
 	speech_buffer.truncate(0)
 	speech_buffer.seek(0)
 	if data == u'':
+		return
+	if not state.focused and not speak_when_unfocused():
 		return
 	if not state.tempsilence:
 		new_line = replace_duplicate_characters_with_count(data)
