@@ -37,10 +37,8 @@ REPEAT_KEY_TIMEOUT = 0.5
 FOCUS_IN = b'\x1b[I'
 FOCUS_REPORTING_ON = b'\x1b[?1004h'
 FOCUS_REPORTING_OFF = b'\x1b[?1004l'
-FOCUS_MODE = b'1004'
-TERMINAL_RESET = b'\x1bc'
+FOCUS_MODE = 1004
 FOCUS_EVENT_RE = re.compile(br'\x1b\[[IO]')
-PRIVATE_MODE_RE = re.compile(br'\x1b\[\?([\d;]+)([hl])')
 PHONETICS = {x[0]: x for x in [
 		'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot',
 		'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike',
@@ -69,7 +67,7 @@ class State:
 		self.last_drawn_y = 0
 		self.delaying_output = False
 		self.focused = True
-		self.child_wants_focus_events = False
+		self.focus_reporting_reset = False
 
 	def save_config(self):
 		with open(CONFIG_FILE, 'w') as fp:
@@ -431,23 +429,14 @@ def main(term_params):
 				if speech_buffer.tell() > 0 and not state.delaying_output:
 					schedule(0.005, read_buffer_scheduled)
 			os.write(1, bytes)
-			if track_child_focus_mode(bytes):
+			if state.focus_reporting_reset:
+				state.focus_reporting_reset = False
 				os.write(1, FOCUS_REPORTING_ON)
 		run_scheduled()
 
 def read_buffer_scheduled():
 	state.delaying_output = False
 	sb()
-
-def track_child_focus_mode(bytes):
-	reporting_disabled = TERMINAL_RESET in bytes
-	if reporting_disabled:
-		state.child_wants_focus_events = False
-	for params, action in PRIVATE_MODE_RE.findall(bytes):
-		if FOCUS_MODE in params.split(b';'):
-			state.child_wants_focus_events = action == b'h'
-			reporting_disabled = action == b'l'
-	return reporting_disabled
 
 def handle_focus_events(bytes, fd):
 	events = FOCUS_EVENT_RE.findall(bytes)
@@ -456,7 +445,7 @@ def handle_focus_events(bytes, fd):
 	state.focused = events[-1] == FOCUS_IN
 	if not state.focused and not speak_when_unfocused():
 		silence()
-	if state.child_wants_focus_events:
+	if screen.child_wants_focus_events():
 		os.write(fd, b''.join(events))
 	return FOCUS_EVENT_RE.sub(b'', bytes)
 
@@ -640,6 +629,13 @@ class MyScreen(pyte.Screen):
 			top = None
 		super().set_margins(top=top, bottom=bottom)
 
+	def reset(self):
+		super().reset()
+		state.focus_reporting_reset = True
+
+	def child_wants_focus_events(self):
+		return FOCUS_MODE << 5 in self.mode
+
 	def draw(self, text):
 		for c in text:
 			self.draw2(c)
@@ -686,6 +682,8 @@ class MyScreen(pyte.Screen):
 		return super().report_device_status(*args, **kwargs)
 
 	def reset_mode(self, *modes, **kwargs):
+		if kwargs.get('private') and FOCUS_MODE in modes:
+			state.focus_reporting_reset = True
 		if 3 in modes:
 			modes = list(modes)
 			modes.remove(3)
