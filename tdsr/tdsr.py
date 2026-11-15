@@ -92,6 +92,7 @@ class KeyHandler:
 		self.fd = fd
 		self.last_key = None
 		self.last_key_time = 0.0
+		self.repeat_count = 0
 
 	def add(self, key, handler):
 		if key not in self.keymap:
@@ -101,20 +102,20 @@ class KeyHandler:
 		key_time = time.monotonic()
 		key_delta = key_time - self.last_key_time
 		self.last_key_time = key_time
-		repeat = data + data
-		if data not in self.keymap:
-			self.last_key = data
-			return self.handle_unknown_key(data)
-		elif self.last_key == data and repeat in self.keymap and key_delta <= REPEAT_KEY_TIMEOUT:
-			result = self.keymap[repeat]()
-			self.last_key = data
-			return result
+		if self.last_key == data and key_delta <= REPEAT_KEY_TIMEOUT:
+			self.repeat_count += 1
 		else:
-			result = self.keymap[data]()
-			if result == KeyHandler.PASSTHROUGH:
-				os.write(self.fd, data)
-			self.last_key = data
-			return result
+			self.repeat_count = 1
+		self.last_key = data
+		if data not in self.keymap:
+			return self.handle_unknown_key(data)
+		for count in range(self.repeat_count, 1, -1):
+			if data * count in self.keymap:
+				return self.keymap[data * count]()
+		result = self.keymap[data]()
+		if result == KeyHandler.PASSTHROUGH:
+			os.write(self.fd, data)
+		return result
 
 	def handle_unknown_key(self, data):
 		os.write(self.fd, data)
@@ -593,6 +594,12 @@ def saychar(y, x, phonetically=False):
 	else:
 		say_character(char)
 
+def say_char_code(y, x):
+	char = screen.buffer[y][x].data or ' '
+	code = ord(char)
+	hex_code = ' '.join('0x%x' % code)
+	synth.send('s%d, %s\n' % (code, hex_code))
+
 def nextchar():
 	state.revx += wcwidth(screen.buffer[state.revy][state.revx].data)
 	if state.revx > screen.columns - 1:
@@ -1007,6 +1014,7 @@ keymap = {
 	b'\x1bm': prevchar,
 	b'\x1b,': lambda: saychar(state.revy, state.revx),
 	b'\x1b,\x1b,': lambda: saychar(state.revy, state.revx, phonetically=True),
+	b'\x1b,\x1b,\x1b,': lambda: say_char_code(state.revy, state.revx),
 	b'\x1b.': nextchar,
 	b'\x1bU': topOfScreen,
 	b'\x1bO': bottomOfScreen,

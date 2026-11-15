@@ -45,6 +45,7 @@ Open Terminal preferences, under Profiles check Use Option as Meta key.
 * alt m, comma, dot - read previous, current, next character
 * alt k twice - spell current word
 * alt comma twice - say current character phonetically
+* alt comma three times - say the decimal and hex value of the current character
 * alt shift u, alt shift o - read top, bottom line of the screen
 * alt shift m - move to start of line and read the character
 * alt shift dot (alt >) - move to end of line and read the character
